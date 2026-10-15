@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ArrowUpDown, Download, ChevronLeft, ChevronRight, Filter, ArrowRight, ArrowRightLeft, X } from 'lucide-react';
+import { Search, ArrowUpDown, Download, ChevronLeft, ChevronRight, Filter, ArrowRight, ArrowRightLeft, X, Table as TableIcon, LayoutList } from 'lucide-react';
 import { Transaction, TransactionType } from '../types/finance';
 import { formatCurrency, isBalanceAdjustment } from '../utils/analytics';
 import { exportTransactionsToCsv } from '../utils/fileParser';
@@ -39,6 +39,7 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
   const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [rowsPerPage, setRowsPerPage] = useState<number>(15);
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   // Extract unique accounts and categories
   const accounts = useMemo(() => {
@@ -135,6 +136,36 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* View Mode Switcher: Full Table vs Card List */}
+            <div className={`inline-flex items-center rounded-lg p-0.5 border ${
+              isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                title="Full-Width Table View"
+                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === 'table'
+                    ? isDark ? 'bg-zinc-800 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs'
+                    : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TableIcon className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('cards')}
+                title="Card List View"
+                className={`p-1.5 rounded-md text-xs font-medium transition-colors ${
+                  viewMode === 'cards'
+                    ? isDark ? 'bg-zinc-800 text-white shadow-xs' : 'bg-white text-slate-900 shadow-xs'
+                    : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
             <button
               onClick={handleExportFiltered}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
@@ -253,9 +284,19 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
         </div>
       </div>
 
-      {/* 10-Column Data Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs">
+      {/* Responsive View Mode: Full-Width Fixed Table & Mobile Card List */}
+      {/* 1. Full-Width Fixed Table (Zero horizontal scroll on desktop/laptop/tablets) */}
+      <div className={viewMode === 'cards' ? 'hidden' : 'hidden md:block w-full overflow-hidden'}>
+        <table className="w-full table-fixed text-left border-collapse text-xs">
+          <colgroup>
+            <col className="w-[11%]" />  {/* Date */}
+            <col className="w-[15%]" />  {/* Account */}
+            <col className="w-[15%]" />  {/* Category / Sub */}
+            <col className="w-[26%]" />  {/* Description & Notes */}
+            <col className="w-[9%]" />   {/* Type */}
+            <col className="w-[12%]" />  {/* Amount */}
+            <col className="w-[12%]" />  {/* Ending Balance */}
+          </colgroup>
           <thead>
             <tr className={`border-b text-[11px] font-semibold uppercase tracking-wider ${
               isDark ? 'bg-zinc-950/60 border-zinc-800 text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-500'
@@ -263,71 +304,71 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
               {/* Col 1: Date */}
               <th
                 onClick={() => handleSort('date')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap"
+                className="py-2.5 px-3 cursor-pointer hover:text-indigo-400 transition-colors select-none"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <span>Date</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
 
               {/* Col 2: Account */}
               <th
                 onClick={() => handleSort('account')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap"
+                className="py-2.5 px-3 cursor-pointer hover:text-indigo-400 transition-colors select-none"
               >
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <span>Account</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
 
               {/* Col 3 & 4: Category / Subcategory */}
               <th
                 onClick={() => handleSort('category')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap"
+                className="py-2.5 px-3 cursor-pointer hover:text-indigo-400 transition-colors select-none"
               >
-                <div className="flex items-center gap-1.5">
-                  <span>Category / Sub</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                <div className="flex items-center gap-1">
+                  <span>Category</span>
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
 
               {/* Col 5 & 6 & 7: Description & Notes */}
-              <th className="py-3 px-4 whitespace-nowrap">
+              <th className="py-2.5 px-3 select-none">
                 <span>Description & Notes</span>
               </th>
 
               {/* Col 8: Type */}
               <th
                 onClick={() => handleSort('type')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap text-center"
+                className="py-2.5 px-2 cursor-pointer hover:text-indigo-400 transition-colors text-center select-none"
               >
-                <div className="flex items-center justify-center gap-1.5">
+                <div className="flex items-center justify-center gap-1">
                   <span>Type</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
 
               {/* Col 9: Amount & Currency */}
               <th
                 onClick={() => handleSort('amount')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap text-right"
+                className="py-2.5 px-3 cursor-pointer hover:text-indigo-400 transition-colors text-right select-none"
               >
-                <div className="flex items-center justify-end gap-1.5">
+                <div className="flex items-center justify-end gap-1">
                   <span>Amount</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
 
               {/* Col 10: Account Balance */}
               <th
                 onClick={() => handleSort('accountBalance')}
-                className="py-3 px-4 cursor-pointer hover:text-indigo-400 whitespace-nowrap text-right"
+                className="py-2.5 px-3 cursor-pointer hover:text-indigo-400 transition-colors text-right select-none"
               >
-                <div className="flex items-center justify-end gap-1.5">
-                  <span>Ending Balance</span>
-                  <ArrowUpDown className="w-3 h-3" />
+                <div className="flex items-center justify-end gap-1">
+                  <span>Balance</span>
+                  <ArrowUpDown className="w-3 h-3 shrink-0 opacity-70" />
                 </div>
               </th>
             </tr>
@@ -349,68 +390,66 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
                   }`}
                 >
                   {/* Col 1: Date */}
-                  <td className="py-3 px-4 font-mono tabular-nums whitespace-nowrap text-slate-700 dark:text-zinc-300">
+                  <td className="py-2.5 px-3 font-mono tabular-nums text-slate-700 dark:text-zinc-300 truncate text-xs">
                     {tx.rawDateStr}
                   </td>
 
                   {/* Col 2: Account */}
-                  <td className="py-3 px-4 whitespace-nowrap">
+                  <td className="py-2.5 px-3 min-w-0">
                     {isTransfer && tx.fromAccount && tx.toAccount ? (
-                      <div>
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-zinc-100">
-                          <span className={isTransferOut ? 'text-amber-500 font-bold' : ''}>
+                      <div className="truncate" title={`${tx.fromAccount} ➔ ${tx.toAccount} (${isTransferOut ? 'Money from' : 'Money to'})`}>
+                        <div className="flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-zinc-100 truncate">
+                          <span className={`truncate ${isTransferOut ? 'text-amber-500 font-bold' : ''}`}>
                             {tx.fromAccount}
                           </span>
-                          <ArrowRight className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span className={isTransferIn ? 'text-emerald-500 font-bold' : ''}>
+                          <ArrowRight className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                          <span className={`truncate ${isTransferIn ? 'text-emerald-500 font-bold' : ''}`}>
                             {tx.toAccount}
                           </span>
                         </div>
-                        <div className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                          <span className="font-mono">Account: {tx.account}</span>
-                          <span>·</span>
-                          <span className={isTransferOut ? 'text-amber-500' : 'text-emerald-500'}>
-                            {isTransferOut ? 'Money from (B1)' : 'Money to (C1)'}
-                          </span>
+                        <div className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">
+                          {isTransferOut ? 'Outflow' : 'Inflow'} · {tx.account}
                         </div>
                       </div>
                     ) : (
-                      <span className="font-medium text-slate-900 dark:text-zinc-100">{tx.account}</span>
+                      <span className="font-medium text-slate-900 dark:text-zinc-100 truncate block text-xs" title={tx.account}>
+                        {tx.account}
+                      </span>
                     )}
                   </td>
 
                   {/* Col 3 & 4: Category / Subcategory */}
-                  <td className="py-3 px-4 whitespace-nowrap">
-                    <div className="font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 flex-wrap">
+                  <td className="py-2.5 px-3 min-w-0">
+                    <div className="font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-1 min-w-0 text-xs">
                       {isTransfer ? (
                         <>
-                          <ArrowRightLeft className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>Transfer</span>
+                          <ArrowRightLeft className="w-3 h-3 text-amber-500 shrink-0" />
+                          <span className="truncate">Transfer</span>
                         </>
                       ) : (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span>{tx.category}</span>
+                        <>
+                          <span className="truncate" title={tx.category}>{tx.category}</span>
                           {isBalanceAdjustment(tx.category) && (
                             <span
-                              className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
-                              title="Balance Adjustment: updates account balance, excluded from Income, Expense, and Cashflow"
+                              className="text-[9px] px-1 py-0.2 rounded font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 shrink-0"
+                              title="Balance Adjustment: excluded from Cashflow"
                             >
-                              Excluded from Cashflow
+                              Adj
                             </span>
                           )}
-                        </div>
+                        </>
                       )}
                     </div>
                     {tx.subcategory && (
-                      <div className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                      <div className={`text-[11px] truncate ${isDark ? 'text-zinc-400' : 'text-slate-500'}`} title={tx.subcategory}>
                         {tx.subcategory}
                       </div>
                     )}
                   </td>
 
                   {/* Col 5 & 6 & 7: Description & Notes */}
-                  <td className="py-3 px-4 max-w-xs">
-                    <div className="font-medium text-slate-900 dark:text-zinc-100 truncate" title={tx.description}>
+                  <td className="py-2.5 px-3 min-w-0">
+                    <div className="font-medium text-slate-900 dark:text-zinc-100 truncate text-xs" title={tx.description}>
                       {tx.description || '—'}
                     </div>
                     {tx.notes && (
@@ -421,8 +460,8 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
                   </td>
 
                   {/* Col 8: Type */}
-                  <td className="py-3 px-4 text-center whitespace-nowrap">
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                  <td className="py-2.5 px-2 text-center min-w-0">
+                    <span className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full truncate max-w-full ${
                       isIncome
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : isExpense
@@ -431,18 +470,12 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
                         ? 'bg-emerald-500/10 text-emerald-500'
                         : 'bg-amber-500/10 text-amber-500'
                     }`}>
-                      {isTransferIn ? (
-                        'Transfer (In)'
-                      ) : isTransferOut ? (
-                        'Transfer (Out)'
-                      ) : (
-                        tx.type
-                      )}
+                      {isTransferIn ? 'Transfer In' : isTransferOut ? 'Transfer Out' : tx.type}
                     </span>
                   </td>
 
                   {/* Col 9: Amount & Currency */}
-                  <td className="py-3 px-4 font-mono tabular-nums text-right whitespace-nowrap">
+                  <td className="py-2.5 px-3 font-mono tabular-nums text-right text-xs truncate">
                     <span className={`font-bold ${
                       isIncome || isTransferIn
                         ? 'text-emerald-600 dark:text-emerald-400'
@@ -456,7 +489,7 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
                   </td>
 
                   {/* Col 10: Account Balance */}
-                  <td className="py-3 px-4 font-mono tabular-nums text-right whitespace-nowrap text-slate-700 dark:text-zinc-300">
+                  <td className="py-2.5 px-3 font-mono tabular-nums text-right text-slate-700 dark:text-zinc-300 text-xs truncate">
                     {formatCurrency(tx.accountBalance, tx.currency)}
                   </td>
                 </tr>
@@ -464,6 +497,101 @@ export const TransactionLedger: React.FC<TransactionLedgerProps> = ({
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* 2. Responsive Card View (Shows on mobile by default or when Cards view is selected) */}
+      <div className={viewMode === 'cards' ? 'divide-y divide-inherit' : 'block md:hidden divide-y divide-inherit'}>
+        {paginatedTransactions.map((tx) => {
+          const isIncome = tx.type === 'Income';
+          const isExpense = tx.type === 'Expense';
+          const isTransfer = tx.type === 'Transfer';
+          const isTransferIn = isTransfer && tx.transferDirection === 'inflow';
+          const isTransferOut = isTransfer && tx.transferDirection === 'outflow';
+
+          return (
+            <div
+              key={tx.id}
+              className={`p-3.5 transition-colors ${
+                isDark ? 'hover:bg-zinc-800/40' : 'hover:bg-slate-50'
+              }`}
+            >
+              {/* Card Row 1: Date + Type badge on left, Amount on right */}
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-zinc-300">
+                    {tx.rawDateStr}
+                  </span>
+                  <span className={`inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    isIncome
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : isExpense
+                      ? 'bg-rose-500/10 text-rose-500'
+                      : isTransferIn
+                      ? 'bg-emerald-500/10 text-emerald-500'
+                      : 'bg-amber-500/10 text-amber-500'
+                  }`}>
+                    {isTransferIn ? 'Transfer In' : isTransferOut ? 'Transfer Out' : tx.type}
+                  </span>
+                  {isBalanceAdjustment(tx.category) && (
+                    <span
+                      className="text-[9px] px-1.5 py-0.2 rounded font-medium bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                      title="Balance Adjustment: excluded from Cashflow"
+                    >
+                      Adj
+                    </span>
+                  )}
+                </div>
+
+                <div className="text-right">
+                  <span className={`text-sm font-bold font-mono tabular-nums ${
+                    isIncome || isTransferIn
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : isExpense || isTransferOut
+                      ? 'text-rose-600 dark:text-rose-400'
+                      : 'text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {isIncome || isTransferIn ? '+' : isExpense || isTransferOut ? '-' : ''}
+                    {formatCurrency(tx.amount, tx.currency)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Card Row 2: Description & Notes */}
+              <div className="mt-2 flex items-start justify-between gap-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-slate-900 dark:text-zinc-100 truncate" title={tx.description}>
+                    {tx.description || '—'}
+                  </div>
+                  {tx.notes && (
+                    <div className={`text-[11px] truncate mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`} title={tx.notes}>
+                      {tx.notes}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right font-mono text-[11px] text-slate-500 dark:text-zinc-400 shrink-0">
+                  Bal: {formatCurrency(tx.accountBalance, tx.currency)}
+                </div>
+              </div>
+
+              {/* Card Row 3: Account & Category information */}
+              <div className="mt-2 pt-2 border-t border-inherit flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
+                <div className="truncate flex items-center gap-1.5">
+                  {isTransfer && tx.fromAccount && tx.toAccount ? (
+                    <span className="font-medium flex items-center gap-1 text-slate-800 dark:text-zinc-300 truncate">
+                      <span>{tx.fromAccount}</span>
+                      <ArrowRight className="w-2.5 h-2.5 text-slate-400 shrink-0" />
+                      <span>{tx.toAccount}</span>
+                    </span>
+                  ) : (
+                    <span className="font-medium text-slate-800 dark:text-zinc-300">{tx.account}</span>
+                  )}
+                  <span>•</span>
+                  <span className="truncate">{tx.category}{tx.subcategory ? ` › ${tx.subcategory}` : ''}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {sorted.length === 0 && (
