@@ -55,9 +55,9 @@ export const TimeframeBar: React.FC<TimeframeBarProps> = ({
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         {/* Left: Timeframe Granularity Segmented Control */}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400 mr-1 hidden sm:flex">
+          <div className="flex items-center gap-1.5 text-xs mr-1 hidden sm:flex">
             <Clock className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-medium text-slate-500 dark:text-zinc-400">Timeframe:</span>
+            <span className="font-semibold text-slate-700 dark:text-zinc-400">Timeframe:</span>
           </div>
 
           <div className={`inline-flex rounded-xl p-1 border flex-wrap ${
@@ -147,10 +147,10 @@ export const TimeframeBar: React.FC<TimeframeBarProps> = ({
 
           {/* Period Transaction Count Badge */}
           <div className={`text-xs font-mono tabular-nums px-2.5 py-1 rounded-md border ${
-            isDark ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+            isDark ? 'bg-zinc-950/40 border-zinc-800 text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-700 font-medium'
           }`}>
             <span>{periodTxCount}</span>
-            <span className="opacity-70"> / {totalTxCount} txns</span>
+            <span className={isDark ? 'text-zinc-500' : 'text-slate-500'}> / {totalTxCount} txns</span>
           </div>
         </div>
       </div>
@@ -162,7 +162,7 @@ export const TimeframeBar: React.FC<TimeframeBarProps> = ({
         }`}>
           {/* Visual Date Range Picker Component */}
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="font-medium text-slate-500 dark:text-zinc-400 flex items-center gap-1.5 shrink-0">
+            <span className="font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 shrink-0">
               <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
               <span>Select Date Range:</span>
             </span>
@@ -176,14 +176,14 @@ export const TimeframeBar: React.FC<TimeframeBarProps> = ({
               onQuickPreset={onQuickPreset}
             />
 
-            <span className="text-slate-400 dark:text-zinc-500 text-[11px] hidden lg:inline">
+            <span className="text-slate-600 dark:text-zinc-400 text-[11px] hidden lg:inline">
               Click to open interactive dual-month calendar
             </span>
           </div>
 
           {/* Quick Preset Buttons */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-slate-400 text-[11px] font-medium">Quick:</span>
+            <span className="text-slate-700 dark:text-zinc-400 text-[11px] font-semibold">Quick:</span>
             <button
               onClick={() => onQuickPreset('7d')}
               className={`px-2 py-1 text-[11px] font-medium rounded-md border transition-colors ${

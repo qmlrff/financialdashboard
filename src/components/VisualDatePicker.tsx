@@ -459,7 +459,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
           {WEEKDAY_NAMES.map(day => (
             <span
               key={day}
-              className="text-[11px] font-medium text-slate-400 dark:text-zinc-500 py-1"
+              className="text-[11px] font-semibold text-slate-700 dark:text-zinc-400 py-1"
             >
               {day}
             </span>
@@ -517,10 +517,10 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
                       : cell.isCurrentMonth
                       ? isDark
                         ? 'text-zinc-200 hover:bg-zinc-800'
-                        : 'text-slate-700 hover:bg-slate-100'
+                        : 'text-slate-800 hover:bg-slate-100 font-semibold'
                       : isDark
                       ? 'text-zinc-600 hover:bg-zinc-800/50'
-                      : 'text-slate-300 hover:bg-slate-50'
+                      : 'text-slate-400 hover:bg-slate-100'
                   } ${
                     cell.isToday && !isStart && !isEnd
                       ? 'ring-1.5 ring-indigo-400 dark:ring-indigo-500'
@@ -577,11 +577,11 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 font-medium tabular-nums">
-            <span className="font-semibold text-slate-800 dark:text-zinc-100">
+            <span className="font-semibold text-slate-900 dark:text-zinc-100">
               {formatNiceDate(startDate)}
             </span>
-            <ArrowRight className="w-3 h-3 text-slate-400" />
-            <span className="font-semibold text-slate-800 dark:text-zinc-100">
+            <ArrowRight className={`w-3 h-3 ${isDark ? 'text-zinc-500' : 'text-slate-500'}`} />
+            <span className="font-semibold text-slate-900 dark:text-zinc-100">
               {formatNiceDate(endDate)}
             </span>
           </div>
@@ -593,7 +593,9 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
           </span>
 
           <ChevronDown
-            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+            className={`w-3.5 h-3.5 transition-transform duration-200 ${
+              isDark ? 'text-zinc-400' : 'text-slate-600'
+            } ${
               isOpen ? 'rotate-180 text-indigo-500' : ''
             }`}
           />
@@ -634,11 +636,11 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
                   </span>
                 )}
               </div>
-              <div className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1 mt-0.5">
+              <div className="text-xs font-semibold text-slate-800 dark:text-zinc-300 flex items-center gap-1 mt-0.5">
                 <span>{formatNiceDate(sortedRange.start)}</span>
-                <span className="text-slate-400">➔</span>
+                <span className="text-slate-500 dark:text-zinc-400">➔</span>
                 <span>{formatNiceDate(sortedRange.end)}</span>
-                <span className="text-slate-400 font-normal">
+                <span className="text-slate-600 dark:text-zinc-400 font-normal">
                   ({dayCount} {dayCount === 1 ? 'day' : 'days'})
                 </span>
               </div>
@@ -648,7 +650,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className={`p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors ${
+                className={`p-1 rounded-lg text-slate-500 hover:text-slate-800 dark:hover:text-zinc-200 transition-colors ${
                   isDark ? 'hover:bg-zinc-800' : 'hover:bg-slate-100'
                 }`}
                 title="Close"
@@ -660,7 +662,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
 
           {/* Quick Preset Buttons Ribbon */}
           <div className="mb-3.5 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
-            <span className="text-[11px] font-medium text-slate-400 shrink-0">Presets:</span>
+            <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-400 shrink-0">Presets:</span>
             <button
               type="button"
               onClick={() => applyPreset('today')}
@@ -737,7 +739,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
 
           {/* Quick Jump Bar: Year and Month direct jump selectors */}
           <div className="mb-3 flex items-center justify-between text-xs px-1">
-            <span className="text-[11px] text-slate-400">Jump calendar to:</span>
+            <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-400">Jump calendar to:</span>
             <div className="flex items-center gap-1.5">
               <select
                 value={viewMonth}
@@ -783,7 +785,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
           }`}>
             {/* Direct date inputs */}
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] text-slate-400">Manual:</span>
+              <span className="text-[11px] font-semibold text-slate-700 dark:text-zinc-400">Manual:</span>
               <input
                 type="date"
                 value={selectedStart}
@@ -797,7 +799,7 @@ export const VisualDatePicker: React.FC<VisualDatePickerProps> = ({
                     : 'bg-white border-slate-200 text-slate-800 focus:border-indigo-500'
                 }`}
               />
-              <span className="text-slate-400">➔</span>
+              <span className="text-slate-500 dark:text-zinc-400">➔</span>
               <input
                 type="date"
                 value={selectedEnd}

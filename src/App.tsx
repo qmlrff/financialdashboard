@@ -367,11 +367,15 @@ export default function App() {
               <div className={`p-6 rounded-2xl border text-center ${
                 isDark ? 'bg-zinc-900/60 border-zinc-800 text-zinc-400' : 'bg-white border-slate-200 text-slate-600 shadow-xs'
               }`}>
-                <div className="w-10 h-10 rounded-full bg-zinc-800 text-zinc-400 mx-auto flex items-center justify-center mb-2">
+                <div className={`w-10 h-10 rounded-full mx-auto flex items-center justify-center mb-2 ${
+                  isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-600'
+                }`}>
                   <Search className="w-5 h-5" />
                 </div>
-                <h4 className="font-semibold text-sm text-zinc-200">No transactions match "{globalSearchQuery}"</h4>
-                <p className="text-xs mt-1 max-w-md mx-auto">
+                <h4 className={`font-semibold text-sm ${isDark ? 'text-zinc-200' : 'text-slate-800'}`}>
+                  No transactions match "{globalSearchQuery}"
+                </h4>
+                <p className={`text-xs mt-1 max-w-md mx-auto ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                   No records found in {activePeriod?.label} matching your query in description, notes, or subcategory.
                 </p>
                 <button
@@ -503,7 +507,7 @@ export default function App() {
                         >
                           <div>
                             <div className="text-xs font-semibold truncate max-w-[160px]">{acc.name}</div>
-                            <div className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                            <div className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                               {acc.transactionCount} transactions
                             </div>
                           </div>
@@ -511,7 +515,9 @@ export default function App() {
                             <div className="text-xs font-mono font-bold tabular-nums">
                               {formatCurrency(acc.latestBalance, acc.currency)}
                             </div>
-                            <div className="text-[10px] text-zinc-400 uppercase">{acc.currency}</div>
+                            <div className={`text-[10px] uppercase font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                              {acc.currency}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -525,7 +531,7 @@ export default function App() {
                     <div className="flex items-center justify-between mb-4">
                       <div>
                         <h3 className="text-sm font-bold">Top Budget Variances</h3>
-                        <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                        <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                           Period: {activePeriod?.label}
                         </p>
                       </div>
@@ -566,7 +572,9 @@ export default function App() {
                           </div>
                           <div className="text-right shrink-0 font-mono tabular-nums text-xs">
                             <div className="font-bold">{formatCurrency(b.actualSpent, primaryCurrency)}</div>
-                            <div className="text-[10px] text-zinc-400">Target: {formatCurrency(b.scaledLimit, primaryCurrency)}</div>
+                            <div className={`text-[10px] font-medium ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                              Target: {formatCurrency(b.scaledLimit, primaryCurrency)}
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -656,13 +664,13 @@ export default function App() {
               </div>
               <button
                 onClick={() => setIsBalanceModalOpen(false)}
-                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50"
+                className={`p-1 rounded-lg ${isDark ? 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`}
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className={`text-xs mt-3 mb-4 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-3 mb-4 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               Ending balance for each transaction is automatically calculated by accumulating chronological income, expense, and transfer flows starting from these baseline balances.
             </p>
 
@@ -673,7 +681,7 @@ export default function App() {
                     {acc.name}
                   </span>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="font-mono text-zinc-400 text-[11px]">{acc.currency}</span>
+                    <span className={`font-mono text-[11px] font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>{acc.currency}</span>
                     <input
                       type="number"
                       step="any"

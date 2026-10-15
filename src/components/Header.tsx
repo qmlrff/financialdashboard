@@ -88,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`whitespace-nowrap shrink-0 transition-colors py-1 border-b-2 ${
               activeTab === 'overview'
                 ? isDark ? 'text-white border-indigo-400 font-semibold' : 'text-slate-900 border-indigo-600 font-semibold'
-                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-500 border-transparent hover:text-slate-900'
+                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-600 font-semibold border-transparent hover:text-slate-900'
             }`}
           >
             Overview
@@ -98,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`whitespace-nowrap shrink-0 transition-colors py-1 border-b-2 ${
               activeTab === 'budget'
                 ? isDark ? 'text-white border-indigo-400 font-semibold' : 'text-slate-900 border-indigo-600 font-semibold'
-                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-500 border-transparent hover:text-slate-900'
+                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-600 font-semibold border-transparent hover:text-slate-900'
             }`}
           >
             Budget Variance
@@ -108,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`whitespace-nowrap shrink-0 transition-colors py-1 border-b-2 ${
               activeTab === 'charts'
                 ? isDark ? 'text-white border-indigo-400 font-semibold' : 'text-slate-900 border-indigo-600 font-semibold'
-                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-500 border-transparent hover:text-slate-900'
+                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-600 font-semibold border-transparent hover:text-slate-900'
             }`}
           >
             Custom Charts
@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`whitespace-nowrap shrink-0 transition-colors py-1 border-b-2 flex items-center gap-1.5 ${
               activeTab === 'anomalies'
                 ? isDark ? 'text-white border-indigo-400 font-semibold' : 'text-slate-900 border-indigo-600 font-semibold'
-                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-500 border-transparent hover:text-slate-900'
+                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-600 font-semibold border-transparent hover:text-slate-900'
             }`}
           >
             <span>Anomalies</span>
@@ -133,7 +133,7 @@ export const Header: React.FC<HeaderProps> = ({
             className={`whitespace-nowrap shrink-0 transition-colors py-1 border-b-2 ${
               activeTab === 'ledger'
                 ? isDark ? 'text-white border-indigo-400 font-semibold' : 'text-slate-900 border-indigo-600 font-semibold'
-                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-500 border-transparent hover:text-slate-900'
+                : isDark ? 'text-zinc-400 border-transparent hover:text-zinc-200' : 'text-slate-600 font-semibold border-transparent hover:text-slate-900'
             }`}
           >
             Transactions
@@ -145,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex-1 min-w-[140px] max-w-md relative group">
             <div className="relative flex items-center">
               <Search className={`w-4 h-4 pointer-events-none absolute left-3 transition-colors ${
-                searchQuery ? 'text-indigo-400' : 'text-zinc-400 group-focus-within:text-indigo-500'
+                searchQuery ? 'text-indigo-400' : isDark ? 'text-zinc-400 group-focus-within:text-indigo-500' : 'text-slate-600 group-focus-within:text-indigo-600'
               }`} />
               <input
                 ref={searchInputRef}
@@ -160,8 +160,8 @@ export const Header: React.FC<HeaderProps> = ({
                       ? 'bg-zinc-900 border-indigo-500/80 text-white placeholder-zinc-400 ring-1 ring-indigo-500/30'
                       : 'bg-zinc-900/90 border-zinc-700/80 text-zinc-100 placeholder-zinc-500 hover:border-zinc-600 focus:border-indigo-500'
                     : searchQuery
-                      ? 'bg-white border-indigo-500 text-slate-900 placeholder-slate-500 ring-1 ring-indigo-500/30 shadow-xs'
-                      : 'bg-slate-100/90 border-slate-200 text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:bg-white focus:border-indigo-500'
+                      ? 'bg-white border-indigo-500 text-slate-900 placeholder-slate-600 ring-1 ring-indigo-500/30 shadow-xs'
+                      : 'bg-slate-100/90 border-slate-300 text-slate-900 placeholder-slate-600 hover:border-slate-400 focus:bg-white focus:border-indigo-500'
                 }`}
               />
 
@@ -186,7 +186,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                       title="Clear search filter (Esc)"
                       className={`p-1 rounded-md transition-colors ${
-                        isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200'
+                        isDark ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                       }`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -194,7 +194,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </>
                 ) : (
                   <kbd className={`hidden xl:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono rounded border select-none ${
-                    isDark ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-slate-200/80 border-slate-300 text-slate-500'
+                    isDark ? 'bg-zinc-800/80 border-zinc-700 text-zinc-400' : 'bg-slate-200/80 border-slate-300 text-slate-600 font-semibold'
                   }`}>
                     ⌘K
                   </kbd>

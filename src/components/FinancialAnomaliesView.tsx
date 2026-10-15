@@ -90,14 +90,14 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
                 </span>
               )}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               Statistical outlier detection identifying transaction amounts and outlays deviating significantly from historical medians.
             </p>
           </div>
 
           {/* Sensitivity Setting */}
           <div className="flex items-center gap-2">
-            <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <span className={`text-xs flex items-center gap-1 ${isDark ? 'text-zinc-400' : 'text-slate-700 font-semibold'}`}>
               <Sliders className="w-3.5 h-3.5" />
               <span>Sensitivity:</span>
             </span>
@@ -126,11 +126,11 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           <div className={`p-4 rounded-xl border ${
             isDark ? 'bg-zinc-950/40 border-zinc-800' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-medium">Flagged Anomalies</span>
+            <span className="text-xs text-slate-700 dark:text-zinc-300 uppercase tracking-wider font-semibold">Flagged Anomalies</span>
             <div className="text-2xl font-bold font-mono tabular-nums text-rose-500 mt-1">
               {activeAnomalies.length}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
               {highSeverityCount} high severity alerts
             </p>
           </div>
@@ -138,11 +138,11 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           <div className={`p-4 rounded-xl border ${
             isDark ? 'bg-zinc-950/40 border-zinc-800' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-medium">Anomaly Outlay Total</span>
+            <span className="text-xs text-slate-700 dark:text-zinc-300 uppercase tracking-wider font-semibold">Anomaly Outlay Total</span>
             <div className="text-2xl font-bold font-mono tabular-nums text-slate-900 dark:text-zinc-100 mt-1">
               {formatCurrency(totalVolume, currency)}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
               Cumulative value of flagged transactions
             </p>
           </div>
@@ -150,11 +150,11 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           <div className={`p-4 rounded-xl border ${
             isDark ? 'bg-zinc-950/40 border-zinc-800' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-medium">Amount Outliers</span>
+            <span className="text-xs text-slate-700 dark:text-zinc-300 uppercase tracking-wider font-semibold">Amount Outliers</span>
             <div className="text-2xl font-bold font-mono tabular-nums text-amber-500 mt-1">
               {outlierAmountCount}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
               Deviations &gt; {sensitivity === 'low' ? '3.5x' : sensitivity === 'high' ? '1.6x' : '2.2x'} category median
             </p>
           </div>
@@ -162,11 +162,11 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           <div className={`p-4 rounded-xl border ${
             isDark ? 'bg-zinc-950/40 border-zinc-800' : 'bg-slate-50 border-slate-200'
           }`}>
-            <span className="text-xs text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-medium">Potential Duplicates</span>
+            <span className="text-xs text-slate-700 dark:text-zinc-300 uppercase tracking-wider font-semibold">Potential Duplicates</span>
             <div className="text-2xl font-bold font-mono tabular-nums text-indigo-400 mt-1">
               {duplicateCount}
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+            <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5 font-medium">
               Identical charges within 48-hour window
             </p>
           </div>
@@ -264,8 +264,8 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
         {dismissedIds.size > 0 && (
           <button
             onClick={handleResetDismissed}
-            className={`text-xs px-2.5 py-1 rounded-md border text-slate-400 hover:text-zinc-200 ${
-              isDark ? 'border-zinc-800 hover:bg-zinc-800' : 'border-slate-200 hover:bg-slate-100'
+            className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${
+              isDark ? 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'border-slate-200 text-slate-700 hover:text-slate-900 hover:bg-slate-100'
             }`}
           >
             Restore {dismissedIds.size} dismissed
@@ -300,11 +300,11 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
                     <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${severityBadgeClass}`}>
                       {anomaly.severity.toUpperCase()} SEVERITY
                     </span>
-                    <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                    <span className="text-xs font-semibold text-slate-900 dark:text-zinc-200">
                       {anomaly.title}
                     </span>
-                    <span aria-hidden="true" className="text-slate-400">·</span>
-                    <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
+                    <span aria-hidden="true" className="text-slate-500 dark:text-zinc-500">·</span>
+                    <span className="text-xs text-slate-600 dark:text-zinc-400 font-mono font-medium">
                       {anomaly.rawDateStr}
                     </span>
                   </div>
@@ -313,7 +313,7 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
                     {anomaly.transaction?.description || anomaly.title}
                   </div>
 
-                  <div className={`text-xs flex items-center gap-2 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  <div className={`text-xs flex items-center gap-2 ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`}>
                     <span>Account: {anomaly.account}</span>
                     <span aria-hidden="true">·</span>
                     <span>Category: {anomaly.category}</span>
@@ -345,7 +345,7 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
                   isDark ? 'bg-zinc-950/50 border-zinc-800/80' : 'bg-slate-50 border-slate-200'
                 }`}>
                   <div className="flex items-center justify-between text-[11px] font-mono tabular-nums">
-                    <span className={isDark ? 'text-zinc-400' : 'text-slate-500'}>
+                    <span className={isDark ? 'text-zinc-400' : 'text-slate-700 font-medium'}>
                       Typical {anomaly.category} Median: {formatCurrency(anomaly.expectedAmount, anomaly.currency)}
                     </span>
                     <span className="font-bold text-rose-500">
@@ -415,7 +415,7 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
             No Financial Anomalies Detected
           </h3>
-          <p className={`text-xs max-w-md mx-auto ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+          <p className={`text-xs max-w-md mx-auto ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
             All recorded transaction amounts in {periodLabel || 'this period'} conform within expected statistical parameters for their respective categories.
           </p>
         </div>

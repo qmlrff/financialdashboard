@@ -79,8 +79,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
           isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium uppercase tracking-wider ${
-              isDark ? 'text-zinc-400' : 'text-slate-500'
+            <span className={`text-xs uppercase tracking-wider ${
+              isDark ? 'text-zinc-400 font-medium' : 'text-slate-600 font-semibold'
             }`}>
               Total Income
             </span>
@@ -92,7 +92,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             <div className="text-2xl font-bold font-mono tabular-nums text-emerald-600 dark:text-emerald-400">
               {formatCurrency(totalIncome, primaryCurrency)}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               {transactions.filter(t => t.type === 'Income' && !isBalanceAdjustment(t.category)).length} credited inflows
             </p>
           </div>
@@ -103,8 +103,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
           isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium uppercase tracking-wider ${
-              isDark ? 'text-zinc-400' : 'text-slate-500'
+            <span className={`text-xs uppercase tracking-wider ${
+              isDark ? 'text-zinc-400 font-medium' : 'text-slate-600 font-semibold'
             }`}>
               Total Expenses
             </span>
@@ -116,7 +116,7 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             <div className="text-2xl font-bold font-mono tabular-nums text-rose-600 dark:text-rose-400">
               {formatCurrency(totalExpense, primaryCurrency)}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               {transactions.filter(t => t.type === 'Expense' && !isBalanceAdjustment(t.category)).length} recorded outlays
             </p>
           </div>
@@ -127,8 +127,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
           isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium uppercase tracking-wider ${
-              isDark ? 'text-zinc-400' : 'text-slate-500'
+            <span className={`text-xs uppercase tracking-wider ${
+              isDark ? 'text-zinc-400 font-medium' : 'text-slate-600 font-semibold'
             }`}>
               Net Cashflow
             </span>
@@ -144,9 +144,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             }`}>
               {formatCurrency(netCashflow, primaryCurrency)}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               {savingsRate !== null ? `Net Margin / Savings: ${savingsRate}%` : 'Net period change'}
-
             </p>
           </div>
         </div>
@@ -156,8 +155,8 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
           isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
           <div className="flex items-center justify-between">
-            <span className={`text-xs font-medium uppercase tracking-wider ${
-              isDark ? 'text-zinc-400' : 'text-slate-500'
+            <span className={`text-xs uppercase tracking-wider ${
+              isDark ? 'text-zinc-400 font-medium' : 'text-slate-600 font-semibold'
             }`}>
               Latest Net Balance
             </span>
@@ -166,10 +165,12 @@ export const SummaryCards: React.FC<SummaryCardsProps> = ({
             </div>
           </div>
           <div className="mt-3">
-            <div className="text-2xl font-bold font-mono tabular-nums">
+            <div className={`text-2xl font-bold font-mono tabular-nums ${
+              isDark ? 'text-zinc-100' : 'text-slate-900'
+            }`}>
               {formatCurrency(totalBalance, primaryCurrency)}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`}>
               Sum of latest balances across {accountSummaries.length} accounts
             </p>
           </div>

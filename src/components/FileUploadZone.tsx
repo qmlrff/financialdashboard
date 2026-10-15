@@ -124,7 +124,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({ onDataLoaded, is
           <h3 className="text-base font-semibold">
             {isLoading ? 'Processing financial ledger...' : 'Drop your Excel or CSV file here'}
           </h3>
-          <p className={`mt-1 text-xs sm:text-sm ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+          <p className={`mt-1 text-xs sm:text-sm ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`}>
             Supports .xlsx, .xls, and .csv files · 100% client-side & private
           </p>
 
@@ -169,7 +169,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({ onDataLoaded, is
           className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg border transition-colors ${
             isDark
               ? 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:bg-zinc-800'
-              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 shadow-xs'
+              : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50 shadow-xs'
           }`}
         >
           <FileSpreadsheet className="w-4 h-4 text-emerald-500" />
@@ -188,7 +188,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({ onDataLoaded, is
               Updated Extraction Source Schema (A1–J1)
             </h4>
           </div>
-          <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+          <span className={`text-xs ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`}>
             A1–E1 & G1–J1 · Transfers: Money from (B1) ➔ Money to (C1) · Ending balance calculated dynamically per account
           </span>
         </div>
@@ -205,7 +205,7 @@ export const FileUploadZone: React.FC<FileUploadZoneProps> = ({ onDataLoaded, is
                 <span className="text-indigo-400 font-mono">{item.col}1</span>
                 <span className={isDark ? 'text-zinc-200' : 'text-slate-800'}>{item.name}</span>
               </div>
-              <p className={`text-[11px] truncate font-mono tabular-nums ${isDark ? 'text-zinc-400' : 'text-slate-500'}`} title={item.example}>
+              <p className={`text-[11px] truncate font-mono tabular-nums ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`} title={item.example}>
                 {item.example}
               </p>
             </div>

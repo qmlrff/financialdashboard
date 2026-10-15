@@ -90,7 +90,7 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                 </span>
               )}
             </div>
-            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+            <p className={`text-xs mt-1 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
               Benchmark actual period outlays against proportionally scaled budget targets.
             </p>
           </div>
@@ -110,17 +110,17 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
         <div className="mt-5 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-2">
-              <span className="font-semibold">Aggregate Budget Utilization</span>
+              <span className="font-semibold text-slate-900 dark:text-zinc-100">Aggregate Budget Utilization</span>
               <span className={`text-[11px] font-mono tabular-nums ${
-                totalVariance < 0 ? 'text-rose-500 font-semibold' : isDark ? 'text-zinc-400' : 'text-slate-500'
+                totalVariance < 0 ? 'text-rose-500 font-semibold' : isDark ? 'text-zinc-400' : 'text-slate-700 font-semibold'
               }`}>
                 {overallPercent.toFixed(1)}% used
               </span>
             </div>
             <div className="font-mono tabular-nums text-xs">
-              <span className="font-bold">{formatCurrency(totalSpent, currency)}</span>
-              <span className={`mx-1 ${isDark ? 'text-zinc-500' : 'text-slate-400'}`}>/</span>
-              <span className={isDark ? 'text-zinc-400' : 'text-slate-500'}>{formatCurrency(totalBudget, currency)}</span>
+              <span className="font-bold text-slate-900 dark:text-zinc-100">{formatCurrency(totalSpent, currency)}</span>
+              <span className={`mx-1 ${isDark ? 'text-zinc-500' : 'text-slate-500'}`}>/</span>
+              <span className={isDark ? 'text-zinc-400' : 'text-slate-700 font-medium'}>{formatCurrency(totalBudget, currency)}</span>
             </div>
           </div>
 
@@ -141,23 +141,23 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
 
           {/* Status Breakdown Bar */}
           <div className="flex flex-wrap items-center justify-between pt-1 text-xs">
-            <div className="flex items-center gap-4 text-xs">
-              <span className="text-emerald-500 flex items-center gap-1">
+            <div className="flex items-center gap-4 text-xs font-medium">
+              <span className="text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-semibold">
                 <CheckCircle className="w-3.5 h-3.5" />
                 {onTrackCategories.length} on track
               </span>
-              <span className="text-amber-500 flex items-center gap-1">
+              <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1 font-semibold">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {warningCategories.length} warning (&gt;80%)
               </span>
-              <span className="text-rose-500 flex items-center gap-1">
+              <span className="text-rose-600 dark:text-rose-400 flex items-center gap-1 font-semibold">
                 <AlertTriangle className="w-3.5 h-3.5" />
                 {overBudgetCategories.length} over budget
               </span>
             </div>
 
             <div className="font-mono tabular-nums text-xs">
-              <span className={`font-semibold ${totalVariance >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+              <span className={`font-semibold ${totalVariance >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
                 {totalVariance >= 0 ? 'Surplus: ' : 'Net Deficit: '}
                 {formatCurrency(Math.abs(totalVariance), currency)}
               </span>
@@ -177,13 +177,13 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
             className={`w-full px-3 py-1.5 text-xs rounded-lg border outline-none transition-colors ${
               isDark
                 ? 'bg-zinc-900 border-zinc-800 text-zinc-100 placeholder-zinc-500 focus:border-indigo-500'
-                : 'bg-white border-slate-200 text-slate-900 placeholder-slate-400 focus:border-indigo-500 shadow-xs'
+                : 'bg-white border-slate-200 text-slate-900 placeholder-slate-500 focus:border-indigo-500 shadow-xs'
             }`}
           />
         </div>
 
         <div className="flex items-center gap-1 text-xs">
-          <span className={`mr-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>Sort by:</span>
+          <span className={`mr-1 ${isDark ? 'text-zinc-400' : 'text-slate-700 font-semibold'}`}>Sort by:</span>
           <div className={`inline-flex rounded-lg p-0.5 border ${
             isDark ? 'bg-zinc-900 border-zinc-800' : 'bg-slate-100 border-slate-200'
           }`}>
@@ -250,7 +250,7 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                     {item.category}
                   </h3>
                   <div className={`flex items-center gap-1.5 text-xs mt-0.5 ${
-                    isDark ? 'text-zinc-400' : 'text-slate-500'
+                    isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'
                   }`}>
                     <span>{item.transactionCount} transactions</span>
                     {item.subcategories.length > 0 && (
@@ -269,7 +269,7 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                   }`}>
                     {item.percentUsed.toFixed(0)}%
                   </div>
-                  <div className="text-[11px] font-mono tabular-nums text-slate-500 dark:text-zinc-400">
+                  <div className="text-[11px] font-mono tabular-nums text-slate-700 dark:text-zinc-300 font-semibold">
                     {isOverrun
                       ? `Over by ${formatCurrency(Math.abs(item.variance), currency)}`
                       : `${formatCurrency(item.variance, currency)} left`}
@@ -292,7 +292,7 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                   <span className="font-semibold text-slate-900 dark:text-zinc-100">
                     {formatCurrency(item.actualSpent, currency)}
                   </span>
-                  <div className={`text-right text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                  <div className={`text-right text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-700 font-medium'}`}>
                     <span>Target: {formatCurrency(item.scaledLimit, currency)}</span>
                     {timeframe !== 'monthly' && (
                       <span className="opacity-75 block text-[10px]">
@@ -308,8 +308,8 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                 <div className="mt-4 pt-3 border-t border-inherit">
                   <button
                     onClick={() => toggleExpand(item.category)}
-                    className={`w-full flex items-center justify-between text-xs font-medium py-1 transition-colors ${
-                      isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-500 hover:text-slate-800'
+                    className={`w-full flex items-center justify-between text-xs font-semibold py-1 transition-colors ${
+                      isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-700 hover:text-slate-900'
                     }`}
                   >
                     <span>Subcategory Outlays</span>
@@ -357,14 +357,14 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
             <div className="p-5 border-b border-inherit flex items-center justify-between">
               <div>
                 <h3 className="text-base font-bold">Configure Monthly Category Budgets</h3>
-                <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                <p className={`text-xs mt-0.5 ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
                   Adjust target spending thresholds per category.
                 </p>
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
                 className={`p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 ${
-                  isDark ? 'text-zinc-400' : 'text-slate-500'
+                  isDark ? 'text-zinc-400' : 'text-slate-600'
                 }`}
               >
                 <X className="w-4 h-4" />
@@ -402,13 +402,13 @@ export const BudgetVariancePanel: React.FC<BudgetVariancePanelProps> = ({
                   >
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-semibold truncate">{b.category}</div>
-                      <div className={`text-[11px] font-mono tabular-nums ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                      <div className={`text-[11px] font-mono tabular-nums ${isDark ? 'text-zinc-400' : 'text-slate-600 font-medium'}`}>
                         Actual Spent: {formatCurrency(b.actualSpent, currency)}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-xs text-slate-400 font-mono">{currency}</span>
+                      <span className={`text-xs font-mono font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>{currency}</span>
                       <input
                         type="number"
                         min="0"
