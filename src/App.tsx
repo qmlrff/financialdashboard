@@ -10,6 +10,7 @@ import { TimeframeBar } from './components/TimeframeBar';
 import { SummaryCards } from './components/SummaryCards';
 import { BudgetVariancePanel } from './components/BudgetVariancePanel';
 import { ChartStudio } from './components/ChartStudio';
+import { AnalyticalInsightsOverview } from './components/AnalyticalInsightsOverview';
 import { TransactionLedger } from './components/TransactionLedger';
 import { FinancialAnomaliesView } from './components/FinancialAnomaliesView';
 import { Transaction, TimeframeUnit } from './types/finance';
@@ -25,7 +26,7 @@ export default function App() {
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [tempInitialBalances, setTempInitialBalances] = useState<Record<string, number>>({});
   const [filename, setFilename] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'charts' | 'anomalies' | 'ledger'>('budget');
+  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'charts' | 'anomalies' | 'ledger'>('overview');
   const [isDark, setIsDark] = useState<boolean>(true);
   const [customLimits, setCustomLimits] = useState<Record<string, number>>({});
   const [anomalySensitivity, setAnomalySensitivity] = useState<SensitivityLevel>('medium');
@@ -177,7 +178,7 @@ export default function App() {
     setInitialBalances(initialBals);
     setFilename(sourceName);
     setCustomLimits({}); // Reset any custom overrides on new file
-    setActiveTab('budget'); // Primary view focus confirmed by user
+    setActiveTab('overview'); // Default to Overview tab when source file is loaded
 
     // Initialize custom dates with min and max
     if (loadedTx.length > 0) {
@@ -201,6 +202,7 @@ export default function App() {
     setInitialBalances({});
     setFilename('');
     setGlobalSearchQuery('');
+    setActiveTab('overview');
   };
 
   const handleLoadSample = () => {
@@ -400,58 +402,6 @@ export default function App() {
             {/* TAB 1: OVERVIEW */}
             {activeTab === 'overview' && (
               <div className="space-y-6">
-                {/* Budget Attention Callout */}
-                {overBudgetCategories.length > 0 ? (
-                  <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
-                    isDark ? 'bg-rose-950/30 border-rose-800/60 text-rose-200' : 'bg-rose-50 border-rose-200 text-rose-900'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
-                        <AlertTriangle className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold">
-                          {overBudgetCategories.length} categories exceeded {timeframe} target limits
-                        </div>
-                        <div className="text-xs opacity-80">
-                          Period deficit: {formatCurrency(
-                            overBudgetCategories.reduce((sum, b) => sum + Math.abs(b.variance), 0),
-                            primaryCurrency
-                          )} ({activePeriod?.label})
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('budget')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-500 shrink-0"
-                    >
-                      <span>Inspect Variances</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
-                    isDark ? 'bg-emerald-950/30 border-emerald-800/60 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
-                        <CheckCircle className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold">All category budgets on track for {activePeriod?.label}</div>
-                        <div className="text-xs opacity-80">Zero overruns recorded in this period.</div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setActiveTab('budget')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 text-white hover:bg-emerald-500 shrink-0"
-                    >
-                      <span>View Budget Cockpit</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
                 {/* Anomaly Attention Callout */}
                 {anomalies.length > 0 && (
                   <div className={`p-4 rounded-2xl border flex items-center justify-between gap-4 ${
@@ -480,119 +430,66 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Split Overview: Top Categories & Account Balances */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  {/* Account Balances List */}
-                  <div className={`p-5 rounded-2xl border ${
-                    isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
-                  }`}>
-                    <div className="flex items-center justify-between mb-4">
+                {/* Account Balances List */}
+                <div className={`p-5 rounded-2xl border ${
+                  isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
+                }`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
                       <h3 className="text-sm font-bold">Accounts & Balances</h3>
-                      <button
-                        onClick={handleOpenBalanceModal}
-                        className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-medium"
-                        title="Configure initial starting balances for accounts"
-                      >
-                        <Edit3 className="w-3 h-3" />
-                        <span>Starting Balances</span>
-                      </button>
+                      <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                        Running balances across all active financial accounts
+                      </p>
                     </div>
-                    <div className="space-y-3">
-                      {accountSummaries.map(acc => (
-                        <div
-                          key={acc.name}
-                          className={`p-3 rounded-xl border flex items-center justify-between ${
-                            isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'
-                          }`}
-                        >
-                          <div>
-                            <div className="text-xs font-semibold truncate max-w-[160px]">{acc.name}</div>
-                            <div className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                              {acc.transactionCount} transactions
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-mono font-bold tabular-nums">
-                              {formatCurrency(acc.latestBalance, acc.currency)}
-                            </div>
-                            <div className={`text-[10px] uppercase font-semibold ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                              {acc.currency}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <button
+                      onClick={handleOpenBalanceModal}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-medium"
+                      title="Configure initial starting balances for accounts"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Starting Balances</span>
+                    </button>
                   </div>
-
-                  {/* Top Spending Categories Preview */}
-                  <div className={`lg:col-span-2 p-5 rounded-2xl border ${
-                    isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
-                  }`}>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-sm font-bold">Top Budget Variances</h3>
-                        <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                          Period: {activePeriod?.label}
-                        </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {accountSummaries.map(acc => (
+                      <div
+                        key={acc.name}
+                        className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 ${
+                          isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="text-xs font-semibold truncate" title={acc.name}>{acc.name}</div>
+                          <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded ${
+                            isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-slate-700'
+                          }`}>
+                            {acc.currency}
+                          </span>
+                        </div>
+                        <div className="flex items-baseline justify-between gap-2 pt-1 border-t border-inherit">
+                          <span className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                            {acc.transactionCount} txns
+                          </span>
+                          <span className="text-sm font-mono font-bold tabular-nums">
+                            {formatCurrency(acc.latestBalance, acc.currency)}
+                          </span>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => setActiveTab('budget')}
-                        className="text-xs text-indigo-400 hover:underline flex items-center gap-1"
-                      >
-                        <span>View all categories</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-
-                    <div className="space-y-3">
-                      {budgets.slice(0, 4).map(b => (
-                        <div
-                          key={b.category}
-                          className={`p-3 rounded-xl border flex items-center justify-between gap-4 ${
-                            isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'
-                          }`}
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between text-xs mb-1">
-                              <span className="font-semibold truncate">{b.category}</span>
-                              <span className={`font-mono tabular-nums font-bold ${
-                                b.variance < 0 ? 'text-rose-500' : 'text-emerald-500'
-                              }`}>
-                                {b.percentUsed.toFixed(0)}% used
-                              </span>
-                            </div>
-                            <div className="h-1.5 w-full bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  b.variance < 0 ? 'bg-rose-500' : b.percentUsed >= 80 ? 'bg-amber-500' : 'bg-emerald-500'
-                                }`}
-                                style={{ width: `${Math.min(100, b.percentUsed)}%` }}
-                              />
-                            </div>
-                          </div>
-                          <div className="text-right shrink-0 font-mono tabular-nums text-xs">
-                            <div className="font-bold">{formatCurrency(b.actualSpent, primaryCurrency)}</div>
-                            <div className={`text-[10px] font-medium ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                              Target: {formatCurrency(b.scaledLimit, primaryCurrency)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Quick Chart Teaser */}
-                <div className="pt-2">
-                  <ChartStudio
-                    transactions={searchFilteredPeriodTransactions}
-                    budgets={budgets}
-                    accountSummaries={accountSummaries}
-                    isDark={isDark}
-                    currency={primaryCurrency}
-                    periodLabel={activePeriod?.label}
-                  />
-                </div>
+                {/* Analytical Insights in Overview Tab */}
+                <AnalyticalInsightsOverview
+                  transactions={searchFilteredPeriodTransactions}
+                  accountSummaries={accountSummaries}
+                  anomalies={anomalies}
+                  period={activePeriod}
+                  periodLabel={activePeriod?.label}
+                  currency={primaryCurrency}
+                  isDark={isDark}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
               </div>
             )}
 
