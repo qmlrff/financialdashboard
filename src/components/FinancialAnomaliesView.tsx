@@ -16,7 +16,20 @@ import {
   Activity,
   Calendar,
   Zap,
+  BarChart3,
+  X,
+  Tag,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Cell,
+  LabelList,
+} from 'recharts';
 import { FinancialAnomaly, AnomalySeverity, AnomalyType, PeriodInfo } from '../types/finance';
 import { SensitivityLevel } from '../utils/anomalyDetection';
 import { formatCurrency } from '../utils/analytics';
@@ -506,6 +519,344 @@ const AnomalyFrequencyTimelineChart: React.FC<AnomalyFrequencyTimelineChartProps
   );
 };
 
+export interface CategoryAnomalyStat {
+  category: string;
+  count: number;
+  totalAmount: number;
+  highSeverityCount: number;
+  mediumSeverityCount: number;
+  lowSeverityCount: number;
+  avgMultiplier: number;
+  percentage: number;
+}
+
+interface CustomCategoryTooltipProps {
+  active?: boolean;
+  payload?: any[];
+  isDark: boolean;
+  currency: string;
+}
+
+const CustomCategoryTooltip: React.FC<CustomCategoryTooltipProps> = ({
+  active,
+  payload,
+  isDark,
+  currency,
+}) => {
+  if (!active || !payload || payload.length === 0) return null;
+  const data: CategoryAnomalyStat = payload[0].payload;
+
+  return (
+    <div
+      className={`p-2.5 rounded-xl border shadow-xl text-xs font-mono pointer-events-none z-50 min-w-[210px] ${
+        isDark ? 'bg-zinc-900 border-zinc-700 text-zinc-100' : 'bg-white border-slate-200 text-slate-900'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-2 border-b border-inherit pb-1.5 mb-1.5">
+        <span className="font-bold text-xs truncate max-w-[130px]">{data.category}</span>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+          isDark ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-800' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
+        }`}>
+          {data.percentage}% of flags
+        </span>
+      </div>
+
+      <div className="space-y-1 text-[11px]">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-zinc-400 dark:text-zinc-500">Anomaly Count:</span>
+          <span className="font-bold text-rose-500">{data.count} {data.count === 1 ? 'flag' : 'flags'}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-zinc-400 dark:text-zinc-500">Outlay Total:</span>
+          <span className="font-bold tabular-nums">{formatCurrency(data.totalAmount, currency)}</span>
+        </div>
+        {data.highSeverityCount > 0 && (
+          <div className="flex items-center justify-between gap-2 text-rose-400 font-semibold">
+            <span>High Severity:</span>
+            <span>{data.highSeverityCount}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-zinc-400 dark:text-zinc-500">Avg Deviation:</span>
+          <span className="font-semibold text-amber-500 tabular-nums">{data.avgMultiplier.toFixed(1)}× median</span>
+        </div>
+      </div>
+      <div className="mt-2 pt-1 border-t border-inherit text-[10px] text-indigo-400 flex items-center justify-between">
+        <span>Click bar to filter list</span>
+        <span>⇲ Filter</span>
+      </div>
+    </div>
+  );
+};
+
+interface AnomalyCategoryBarChartProps {
+  anomalies: FinancialAnomaly[];
+  isDark: boolean;
+  currency: string;
+  selectedCategory: string | null;
+  onSelectCategory: (category: string | null) => void;
+  onViewInLedger: (query: string) => void;
+}
+
+const AnomalyCategoryBarChart: React.FC<AnomalyCategoryBarChartProps> = ({
+  anomalies,
+  isDark,
+  currency,
+  selectedCategory,
+  onSelectCategory,
+  onViewInLedger,
+}) => {
+  const categoryStats = useMemo<CategoryAnomalyStat[]>(() => {
+    const map = new Map<string, {
+      count: number;
+      totalAmount: number;
+      high: number;
+      medium: number;
+      low: number;
+      totalMultiplier: number;
+    }>();
+
+    anomalies.forEach(a => {
+      const cat = a.category?.trim() || 'Uncategorized';
+      if (!map.has(cat)) {
+        map.set(cat, { count: 0, totalAmount: 0, high: 0, medium: 0, low: 0, totalMultiplier: 0 });
+      }
+      const item = map.get(cat)!;
+      item.count += 1;
+      item.totalAmount += a.amount;
+      item.totalMultiplier += (a.deviationMultiplier || 1);
+      if (a.severity === 'high') item.high += 1;
+      else if (a.severity === 'medium') item.medium += 1;
+      else item.low += 1;
+    });
+
+    const total = anomalies.length;
+
+    const list: CategoryAnomalyStat[] = Array.from(map.entries()).map(([cat, val]) => ({
+      category: cat,
+      count: val.count,
+      totalAmount: val.totalAmount,
+      highSeverityCount: val.high,
+      mediumSeverityCount: val.medium,
+      lowSeverityCount: val.low,
+      avgMultiplier: val.count > 0 ? val.totalMultiplier / val.count : 1,
+      percentage: total > 0 ? Math.round((val.count / total) * 100) : 0,
+    }));
+
+    // Sort descending by count, then by totalAmount
+    list.sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return b.totalAmount - a.totalAmount;
+    });
+
+    return list;
+  }, [anomalies]);
+
+  const topCategory = categoryStats.length > 0 ? categoryStats[0] : null;
+
+  // Dynamic height based on number of categories
+  const chartHeight = useMemo(() => {
+    if (categoryStats.length === 0) return 130;
+    return Math.min(220, Math.max(130, categoryStats.length * 28 + 36));
+  }, [categoryStats.length]);
+
+  return (
+    <div className="space-y-3">
+      {/* Header and Summary stats */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center shrink-0">
+            <BarChart3 className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                Anomalies by Category
+              </h4>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold border ${
+                isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>
+                {categoryStats.length} {categoryStats.length === 1 ? 'category' : 'categories'}
+              </span>
+            </div>
+            <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+              Count of detected anomalies grouped by spending category
+            </p>
+          </div>
+        </div>
+
+        {/* Intelligence stats strip */}
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          {topCategory && (
+            <div className={`px-2.5 py-1 rounded-lg border font-mono font-semibold text-[11px] ${
+              isDark ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+            }`}>
+              <span>Top: </span>
+              <span className="font-bold">{topCategory.category}</span>
+              <span className="opacity-75 ml-1">({topCategory.count}x)</span>
+            </div>
+          )}
+
+          {selectedCategory && (
+            <button
+              type="button"
+              onClick={() => onSelectCategory(null)}
+              className={`px-2 py-1 rounded-lg border font-mono text-[10px] font-bold flex items-center gap-1 transition-colors ${
+                isDark ? 'bg-rose-950/60 border-rose-800 text-rose-300 hover:bg-rose-900/60' : 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+              }`}
+              title="Clear category filter"
+            >
+              <span>{selectedCategory}</span>
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Chart Canvas Card */}
+      <div className={`p-3 rounded-xl border relative overflow-hidden flex flex-col justify-between ${
+        isDark ? 'bg-zinc-950/50 border-zinc-800/90' : 'bg-slate-50/80 border-slate-200'
+      }`}>
+        {categoryStats.length === 0 ? (
+          <div className="py-8 text-center space-y-1">
+            <p className="text-xs font-semibold text-zinc-400">No categorized anomalies detected</p>
+            <p className="text-[11px] text-zinc-500">Lower the threshold filter to inspect more transactions</p>
+          </div>
+        ) : (
+          <div className="w-full relative" style={{ height: `${chartHeight}px` }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                layout="vertical"
+                data={categoryStats}
+                margin={{ top: 6, right: 32, left: 4, bottom: 2 }}
+              >
+                <XAxis
+                  type="number"
+                  domain={[0, (dataMax: number) => Math.max(dataMax + 1, 2)]}
+                  allowDecimals={false}
+                  tickLine={false}
+                  axisLine={{ stroke: isDark ? '#27272a' : '#e2e8f0' }}
+                  tick={{
+                    fontSize: 9.5,
+                    fontFamily: 'monospace',
+                    fill: isDark ? '#71717a' : '#94a3b8',
+                  }}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="category"
+                  width={110}
+                  tickLine={false}
+                  axisLine={{ stroke: isDark ? '#27272a' : '#e2e8f0' }}
+                  tick={props => {
+                    const { x, y, payload } = props;
+                    const isSelected = selectedCategory === payload.value;
+                    const fullText = String(payload.value || '');
+                    const truncated = fullText.length > 14 ? `${fullText.slice(0, 13)}…` : fullText;
+                    return (
+                      <text
+                        x={x}
+                        y={y}
+                        dy={4}
+                        textAnchor="end"
+                        fontSize={10.5}
+                        fontFamily="monospace"
+                        fontWeight={isSelected ? 700 : 500}
+                        fill={
+                          isSelected
+                            ? (isDark ? '#818cf8' : '#4f46e5')
+                            : (isDark ? '#d4d4d8' : '#334155')
+                        }
+                        className="cursor-pointer transition-colors hover:fill-indigo-400"
+                        onClick={() => onSelectCategory(isSelected ? null : payload.value)}
+                      >
+                        <title>{fullText}</title>
+                        {truncated}
+                      </text>
+                    );
+                  }}
+                />
+                <RechartsTooltip
+                  content={
+                    <CustomCategoryTooltip
+                      isDark={isDark}
+                      currency={currency}
+                    />
+                  }
+                  cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)' }}
+                />
+                <Bar
+                  dataKey="count"
+                  radius={[0, 4, 4, 0]}
+                  barSize={14}
+                  isAnimationActive={true}
+                  animationDuration={450}
+                  onClick={(entry: any) => {
+                    if (entry && entry.category) {
+                      onSelectCategory(selectedCategory === entry.category ? null : entry.category);
+                    }
+                  }}
+                  className="cursor-pointer"
+                >
+                  <LabelList
+                    dataKey="count"
+                    position="right"
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      fontFamily: 'monospace',
+                      fill: isDark ? '#e4e4e7' : '#1e293b',
+                    }}
+                    formatter={(val: any) => `${val}`}
+                  />
+                  {categoryStats.map(entry => {
+                    const isSelected = selectedCategory === entry.category;
+                    const isDimmed = selectedCategory !== null && !isSelected;
+                    const hasHigh = entry.highSeverityCount > 0;
+
+                    let fill = hasHigh ? '#f43f5e' : '#6366f1';
+                    if (isSelected) fill = '#4f46e5';
+
+                    return (
+                      <Cell
+                        key={`cell-${entry.category}`}
+                        fill={fill}
+                        opacity={isDimmed ? 0.35 : 1}
+                      />
+                    );
+                  })}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Footer / Interaction Hint */}
+        <div className="mt-2 pt-2 border-t border-inherit flex items-center justify-between gap-2 text-[10.5px] font-mono text-zinc-500 dark:text-zinc-400">
+          <span className="truncate">
+            {selectedCategory ? (
+              <span className="text-indigo-400 font-medium">
+                Active filter: {selectedCategory} (Click bar to clear)
+              </span>
+            ) : (
+              <span>Click any bar or category name to filter list below</span>
+            )}
+          </span>
+          {topCategory && (
+            <button
+              type="button"
+              onClick={() => onViewInLedger(selectedCategory || topCategory.category)}
+              className="text-indigo-400 hover:text-indigo-300 font-medium shrink-0 hover:underline inline-flex items-center gap-1"
+            >
+              <span>Ledger →</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface FinancialAnomaliesViewProps {
   anomalies: FinancialAnomaly[];
   sensitivity: SensitivityLevel;
@@ -535,6 +886,9 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
   const [filterMode, setFilterMode] = useState<AnomalyThresholdFilterMode>('monetary');
   const [monetaryFilterValue, setMonetaryFilterValue] = useState<number>(100);
   const [multiplierFilterValue, setMultiplierFilterValue] = useState<number>(2);
+
+  // Category filter selection from the horizontal bar chart
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
 
   // Filter out dismissed anomalies
   const activeAnomalies = useMemo(() => {
@@ -567,8 +921,8 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
     }
   };
 
-  // Secondary filtering - show only anomalies higher than selected filter
-  const filteredAnomalies = useMemo(() => {
+  // Base threshold & severity/type filtering (before category selection)
+  const baseFilteredAnomalies = useMemo(() => {
     return activeAnomalies.filter(a => {
       if (filterSeverity !== 'all' && a.severity !== filterSeverity) return false;
       if (filterType !== 'all' && a.type !== filterType) return false;
@@ -583,6 +937,14 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
       return true;
     });
   }, [activeAnomalies, filterSeverity, filterType, filterMode, monetaryFilterValue, multiplierFilterValue]);
+
+  // Secondary filtering - including category filter when selected from horizontal bar chart
+  const filteredAnomalies = useMemo(() => {
+    if (!selectedCategoryFilter) return baseFilteredAnomalies;
+    return baseFilteredAnomalies.filter(
+      a => (a.category?.trim() || 'Uncategorized') === selectedCategoryFilter
+    );
+  }, [baseFilteredAnomalies, selectedCategoryFilter]);
 
   // Chronological anomaly frequency timeline points for the active period
   const timelineData = useMemo(() => {
@@ -708,14 +1070,25 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           </div>
         </div>
 
-        {/* Anomaly Frequency Trend Line Chart */}
-        <div className="mt-5 pt-5 border-t border-inherit">
+        {/* Visual Intelligence Section: Frequency Line Chart & Category Horizontal Bar Chart */}
+        <div className="mt-5 pt-5 border-t border-inherit grid grid-cols-1 xl:grid-cols-2 gap-5">
+          {/* Anomaly Frequency Timeline (Line chart over time) */}
           <AnomalyFrequencyTimelineChart
             timelineData={timelineData}
             isDark={isDark}
             currency={currency}
             periodLabel={periodLabel}
             totalCount={filteredAnomalies.length}
+            onViewInLedger={onViewInLedger}
+          />
+
+          {/* Anomaly Category Distribution (Small Horizontal Bar Chart) */}
+          <AnomalyCategoryBarChart
+            anomalies={baseFilteredAnomalies}
+            isDark={isDark}
+            currency={currency}
+            selectedCategory={selectedCategoryFilter}
+            onSelectCategory={setSelectedCategoryFilter}
             onViewInLedger={onViewInLedger}
           />
         </div>
@@ -1109,6 +1482,38 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
           </button>
         )}
       </div>
+
+      {/* Category Filter Active Banner (When selected from horizontal bar chart) */}
+      {selectedCategoryFilter && (
+        <div className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+          isDark ? 'bg-indigo-950/40 border-indigo-800/80 text-indigo-200' : 'bg-indigo-50 border-indigo-200 text-indigo-900'
+        }`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Category Filter:</span>
+            </span>
+            <span className={`font-mono font-bold px-2 py-0.5 rounded-md ${
+              isDark ? 'bg-indigo-900/60 text-indigo-200 border border-indigo-700' : 'bg-white text-indigo-700 border border-indigo-300 shadow-xs'
+            }`}>
+              {selectedCategoryFilter}
+            </span>
+            <span className="text-[11px] opacity-75">
+              (Showing {filteredAnomalies.length} of {baseFilteredAnomalies.length} anomalies)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedCategoryFilter(null)}
+            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
+              isDark ? 'border-indigo-800 hover:bg-indigo-900/50 text-indigo-300' : 'border-indigo-200 hover:bg-white text-indigo-700'
+            }`}
+          >
+            <X className="w-3.5 h-3.5" />
+            <span>Clear Filter</span>
+          </button>
+        </div>
+      )}
 
       {/* Flagged Anomaly Cards List */}
       <div className="space-y-4">
