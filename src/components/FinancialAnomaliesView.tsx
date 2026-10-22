@@ -11,10 +11,500 @@ import {
   Check,
   Eye,
   Info,
+  DollarSign,
+  RotateCcw,
+  Activity,
+  Calendar,
+  Zap,
 } from 'lucide-react';
-import { FinancialAnomaly, AnomalySeverity, AnomalyType } from '../types/finance';
+import { FinancialAnomaly, AnomalySeverity, AnomalyType, PeriodInfo } from '../types/finance';
 import { SensitivityLevel } from '../utils/anomalyDetection';
 import { formatCurrency } from '../utils/analytics';
+
+type AnomalyThresholdFilterMode = 'monetary' | 'multiplier';
+
+export interface AnomalyTimelinePoint {
+  key: string;
+  label: string;
+  shortLabel: string;
+  date: Date;
+  count: number;
+  totalAmount: number;
+  anomalies: FinancialAnomaly[];
+  hasHighSeverity: boolean;
+}
+
+/**
+ * Builds chronological timeline data points across the active period for anomaly frequency analysis.
+ */
+function generateAnomalyTimeline(
+  anomalies: FinancialAnomaly[],
+  period?: PeriodInfo
+): AnomalyTimelinePoint[] {
+  // If period has start and end dates
+  if (period && period.start && period.end) {
+    const startMs = period.start.getTime();
+    const endMs = period.end.getTime();
+    const diffDays = Math.max(1, Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)));
+
+    // 1. Daily breakdown if span is <= 35 days (Monthly, Weekly, or short Custom period)
+    if (diffDays <= 35) {
+      const points: AnomalyTimelinePoint[] = [];
+      const current = new Date(period.start);
+      current.setHours(0, 0, 0, 0);
+
+      while (current.getTime() <= endMs) {
+        const y = current.getFullYear();
+        const m = current.getMonth();
+        const d = current.getDate();
+
+        const matches = anomalies.filter(a => {
+          const ad = a.date;
+          return ad.getFullYear() === y && ad.getMonth() === m && ad.getDate() === d;
+        });
+
+        const totalAmount = matches.reduce((sum, a) => sum + a.amount, 0);
+        const hasHighSeverity = matches.some(a => a.severity === 'high');
+
+        points.push({
+          key: `${y}-${m + 1}-${d}`,
+          label: current.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' }),
+          shortLabel: current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          date: new Date(current),
+          count: matches.length,
+          totalAmount,
+          anomalies: matches,
+          hasHighSeverity,
+        });
+
+        current.setDate(current.getDate() + 1);
+      }
+
+      return points;
+    }
+
+    // 2. Monthly breakdown if span > 35 days (Yearly or multi-month range)
+    if (diffDays > 35) {
+      const points: AnomalyTimelinePoint[] = [];
+      const current = new Date(period.start.getFullYear(), period.start.getMonth(), 1);
+
+      while (current.getTime() <= endMs) {
+        const y = current.getFullYear();
+        const m = current.getMonth();
+
+        const matches = anomalies.filter(a => {
+          const ad = a.date;
+          return ad.getFullYear() === y && ad.getMonth() === m;
+        });
+
+        const totalAmount = matches.reduce((sum, a) => sum + a.amount, 0);
+        const hasHighSeverity = matches.some(a => a.severity === 'high');
+
+        points.push({
+          key: `${y}-${m + 1}`,
+          label: current.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+          shortLabel: current.toLocaleDateString('en-US', { month: 'short' }),
+          date: new Date(current),
+          count: matches.length,
+          totalAmount,
+          anomalies: matches,
+          hasHighSeverity,
+        });
+
+        current.setMonth(current.getMonth() + 1);
+      }
+
+      return points;
+    }
+  }
+
+  // 3. Fallback: group by distinct dates present in anomalies
+  const dateMap = new Map<string, { date: Date; matches: FinancialAnomaly[] }>();
+  anomalies.forEach(a => {
+    const y = a.date.getFullYear();
+    const m = (a.date.getMonth() + 1).toString().padStart(2, '0');
+    const d = a.date.getDate().toString().padStart(2, '0');
+    const key = `${y}-${m}-${d}`;
+    if (!dateMap.has(key)) {
+      dateMap.set(key, { date: new Date(a.date.getFullYear(), a.date.getMonth(), a.date.getDate()), matches: [] });
+    }
+    dateMap.get(key)!.matches.push(a);
+  });
+
+  const sortedKeys = Array.from(dateMap.keys()).sort();
+  if (sortedKeys.length === 0) return [];
+
+  return sortedKeys.map(k => {
+    const item = dateMap.get(k)!;
+    return {
+      key: k,
+      label: item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', weekday: 'short' }),
+      shortLabel: item.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      date: item.date,
+      count: item.matches.length,
+      totalAmount: item.matches.reduce((sum, a) => sum + a.amount, 0),
+      anomalies: item.matches,
+      hasHighSeverity: item.matches.some(a => a.severity === 'high'),
+    };
+  });
+}
+
+/**
+ * Interactive SVG line chart and frequency trend indicator for anomalies over the selected period.
+ */
+interface AnomalyFrequencyTimelineChartProps {
+  timelineData: AnomalyTimelinePoint[];
+  isDark: boolean;
+  currency: string;
+  periodLabel?: string;
+  totalCount: number;
+  onViewInLedger: (query: string) => void;
+}
+
+const AnomalyFrequencyTimelineChart: React.FC<AnomalyFrequencyTimelineChartProps> = ({
+  timelineData,
+  isDark,
+  currency,
+  periodLabel,
+  totalCount,
+  onViewInLedger,
+}) => {
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  const peakPoint = useMemo<AnomalyTimelinePoint | null>(() => {
+    let max = 0;
+    let peak: AnomalyTimelinePoint | null = null;
+    timelineData.forEach(p => {
+      if (p.count > max) {
+        max = p.count;
+        peak = p;
+      }
+    });
+    return peak;
+  }, [timelineData]);
+
+  const activeDaysCount = useMemo(() => {
+    return timelineData.filter(p => p.count > 0).length;
+  }, [timelineData]);
+
+  // SVG chart dimensions
+  const width = 680;
+  const height = 135;
+  const padding = { top: 18, bottom: 26, left: 36, right: 18 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  const maxCount = useMemo(() => {
+    const maxVal = Math.max(0, ...timelineData.map(p => p.count));
+    return Math.max(2, maxVal);
+  }, [timelineData]);
+
+  const getX = (index: number) => {
+    if (timelineData.length <= 1) return padding.left + chartWidth / 2;
+    return padding.left + (index / (timelineData.length - 1)) * chartWidth;
+  };
+
+  const getY = (count: number) => {
+    return padding.top + chartHeight - (count / maxCount) * chartHeight;
+  };
+
+  // Build line path and area path
+  const linePath = useMemo(() => {
+    if (timelineData.length === 0) return '';
+    return timelineData.map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getY(p.count).toFixed(1)}`).join(' ');
+  }, [timelineData, maxCount]);
+
+  const areaPath = useMemo(() => {
+    if (timelineData.length === 0) return '';
+    const firstX = getX(0).toFixed(1);
+    const lastX = getX(timelineData.length - 1).toFixed(1);
+    const bottomY = (padding.top + chartHeight).toFixed(1);
+
+    const body = timelineData.map((p, i) => `L ${getX(i).toFixed(1)} ${getY(p.count).toFixed(1)}`).join(' ');
+    return `M ${firstX} ${bottomY} ${body} L ${lastX} ${bottomY} Z`;
+  }, [timelineData, maxCount]);
+
+  // Select evenly spaced x-axis tick indices
+  const tickIndices = useMemo(() => {
+    const len = timelineData.length;
+    if (len <= 6) return timelineData.map((_, i) => i);
+    const step = (len - 1) / 5;
+    return [0, Math.round(step), Math.round(step * 2), Math.round(step * 3), Math.round(step * 4), len - 1];
+  }, [timelineData]);
+
+  const activePoint = hoveredIdx !== null ? timelineData[hoveredIdx] : null;
+
+  return (
+    <div className="space-y-3">
+      {/* Header and Quick Stats */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0">
+            <Activity className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200">
+                Anomaly Frequency Timeline
+              </h4>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-semibold border ${
+                isDark ? 'bg-zinc-800 text-zinc-300 border-zinc-700' : 'bg-slate-100 text-slate-700 border-slate-200'
+              }`}>
+                {periodLabel || 'Active Period'}
+              </span>
+            </div>
+            <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+              Daily anomaly frequency trend across the active timeframe
+            </p>
+          </div>
+        </div>
+
+        {/* Intelligence stats strip */}
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <div className={`px-2.5 py-1 rounded-lg border font-mono font-semibold text-[11px] ${
+            isDark ? 'bg-zinc-950/60 border-zinc-800 text-zinc-300' : 'bg-slate-50 border-slate-200 text-slate-700'
+          }`}>
+            <span>Pace: </span>
+            <span className="text-indigo-500 font-bold">
+              {(totalCount / Math.max(1, timelineData.length)).toFixed(2)}/day
+            </span>
+          </div>
+
+          {peakPoint && peakPoint.count > 0 && (
+            <div className={`px-2.5 py-1 rounded-lg border font-mono font-semibold text-[11px] ${
+              isDark ? 'bg-rose-950/40 border-rose-800/60 text-rose-300' : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}>
+              <span>Peak: </span>
+              <span className="font-bold">{peakPoint.shortLabel}</span>
+              <span className="opacity-75 ml-1">({peakPoint.count}x)</span>
+            </div>
+          )}
+
+          <div className={`px-2.5 py-1 rounded-lg border font-mono font-semibold text-[11px] ${
+            isDark ? 'bg-zinc-950/60 border-zinc-800 text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+          }`}>
+            <span>{activeDaysCount}</span>
+            <span className="opacity-75">/{timelineData.length} active days</span>
+          </div>
+        </div>
+      </div>
+
+      {/* SVG Line Chart Canvas */}
+      <div className={`p-3 rounded-xl border relative overflow-hidden ${
+        isDark ? 'bg-zinc-950/50 border-zinc-800/90' : 'bg-slate-50/80 border-slate-200'
+      }`}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full h-28 sm:h-32 overflow-visible select-none"
+        >
+          <defs>
+            <linearGradient id="anomalyFreqGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.32" />
+              <stop offset="60%" stopColor="#f43f5e" stopOpacity="0.08" />
+              <stop offset="100%" stopColor="#f43f5e" stopOpacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          {/* Horizontal grid lines */}
+          <line
+            x1={padding.left}
+            y1={padding.top}
+            x2={width - padding.right}
+            y2={padding.top}
+            strokeDasharray="2 3"
+            className="stroke-slate-200 dark:stroke-zinc-800"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding.left}
+            y1={padding.top + chartHeight / 2}
+            x2={width - padding.right}
+            y2={padding.top + chartHeight / 2}
+            strokeDasharray="2 3"
+            className="stroke-slate-200 dark:stroke-zinc-800"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding.left}
+            y1={padding.top + chartHeight}
+            x2={width - padding.right}
+            y2={padding.top + chartHeight}
+            className="stroke-slate-300 dark:stroke-zinc-700"
+            strokeWidth="1.2"
+          />
+
+          {/* Y-axis tick labels */}
+          <text
+            x={padding.left - 8}
+            y={padding.top + 4}
+            textAnchor="end"
+            className="text-[9.5px] font-mono font-semibold fill-slate-400 dark:fill-zinc-500"
+          >
+            {maxCount}
+          </text>
+          <text
+            x={padding.left - 8}
+            y={padding.top + chartHeight / 2 + 3}
+            textAnchor="end"
+            className="text-[9.5px] font-mono font-semibold fill-slate-400 dark:fill-zinc-500"
+          >
+            {Math.round(maxCount / 2)}
+          </text>
+          <text
+            x={padding.left - 8}
+            y={padding.top + chartHeight}
+            textAnchor="end"
+            className="text-[9.5px] font-mono font-semibold fill-slate-400 dark:fill-zinc-500"
+          >
+            0
+          </text>
+
+          {/* Filled Area Gradient */}
+          {areaPath && (
+            <path d={areaPath} fill="url(#anomalyFreqGrad)" />
+          )}
+
+          {/* Main Trend Line */}
+          {linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke="#f43f5e"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {/* Hover guideline */}
+          {activePoint && hoveredIdx !== null && (
+            <line
+              x1={getX(hoveredIdx)}
+              y1={padding.top}
+              x2={getX(hoveredIdx)}
+              y2={padding.top + chartHeight}
+              strokeDasharray="3 3"
+              className="stroke-indigo-400/90 dark:stroke-indigo-400"
+              strokeWidth="1.5"
+            />
+          )}
+
+          {/* Data Points */}
+          {timelineData.map((p, i) => {
+            const cx = getX(i);
+            const cy = getY(p.count);
+            const isHovered = hoveredIdx === i;
+            const isPeak = peakPoint?.key === p.key && p.count > 0;
+
+            return (
+              <g key={p.key}>
+                {/* Peak pulse glow ring */}
+                {isPeak && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={8}
+                    className="fill-rose-500/25 animate-ping"
+                  />
+                )}
+
+                {/* Visible node for non-zero points or hovered point */}
+                {(p.count > 0 || isHovered) && (
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={isHovered ? 5.5 : p.hasHighSeverity ? 4.5 : 3.5}
+                    className={`transition-all duration-150 ${
+                      p.hasHighSeverity
+                        ? 'fill-rose-500 stroke-rose-200 dark:stroke-rose-950 stroke-2'
+                        : isHovered
+                        ? 'fill-indigo-500 stroke-white dark:stroke-zinc-900 stroke-2'
+                        : 'fill-rose-500 stroke-white dark:stroke-zinc-900 stroke-1.5'
+                    }`}
+                  />
+                )}
+
+                {/* Invisible hover capture rect spanning the column */}
+                <rect
+                  x={Math.max(padding.left, cx - chartWidth / (timelineData.length * 2))}
+                  y={padding.top}
+                  width={chartWidth / timelineData.length}
+                  height={chartHeight + 10}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  onMouseEnter={() => setHoveredIdx(i)}
+                  onTouchStart={() => setHoveredIdx(i)}
+                />
+              </g>
+            );
+          })}
+
+          {/* X-axis tick labels */}
+          {tickIndices.map(idx => {
+            const p = timelineData[idx];
+            if (!p) return null;
+            return (
+              <text
+                key={p.key}
+                x={getX(idx)}
+                y={padding.top + chartHeight + 18}
+                textAnchor="middle"
+                className="text-[9.5px] font-mono fill-slate-500 dark:fill-zinc-400 font-medium"
+              >
+                {p.shortLabel}
+              </text>
+            );
+          })}
+        </svg>
+
+        {/* Hover / Detail Status Bar */}
+        <div className={`mt-2 pt-2 border-t border-inherit flex flex-wrap items-center justify-between gap-2 text-xs transition-all ${
+          activePoint ? 'opacity-100' : 'opacity-85'
+        }`}>
+          {activePoint ? (
+            <div className="flex items-center justify-between gap-3 w-full">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-slate-900 dark:text-zinc-100 font-mono">
+                  📅 {activePoint.label}:
+                </span>
+                <span className={`px-2 py-0.5 rounded font-mono font-bold text-[11px] ${
+                  activePoint.count > 0
+                    ? isDark ? 'bg-rose-950/80 text-rose-300' : 'bg-rose-100 text-rose-800'
+                    : isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-200 text-slate-700'
+                }`}>
+                  {activePoint.count} {activePoint.count === 1 ? 'anomaly' : 'anomalies'} flagged
+                  {activePoint.count > 0 && ` (${formatCurrency(activePoint.totalAmount, currency)})`}
+                </span>
+                {activePoint.anomalies.length > 0 && (
+                  <span className={`text-[11px] truncate max-w-sm hidden sm:inline ${
+                    isDark ? 'text-zinc-400' : 'text-slate-600'
+                  }`}>
+                    {activePoint.anomalies.map(a => `${a.category} (${formatCurrency(a.amount, currency)})`).join(' · ')}
+                  </span>
+                )}
+              </div>
+
+              {activePoint.anomalies.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onViewInLedger(activePoint.anomalies[0].category)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 font-medium shrink-0 hover:underline"
+                >
+                  Inspect in Ledger →
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 w-full text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+              <span>Hover over timeline points to inspect anomaly occurrences by date</span>
+              <span>{timelineData.length} timeline buckets ({periodLabel || 'Period'})</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface FinancialAnomaliesViewProps {
   anomalies: FinancialAnomaly[];
@@ -22,6 +512,7 @@ interface FinancialAnomaliesViewProps {
   onSensitivityChange: (level: SensitivityLevel) => void;
   currency: string;
   isDark: boolean;
+  period?: PeriodInfo;
   periodLabel?: string;
   onViewInLedger: (searchQuery: string) => void;
 }
@@ -32,6 +523,7 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
   onSensitivityChange,
   currency,
   isDark,
+  period,
   periodLabel,
   onViewInLedger,
 }) => {
@@ -39,19 +531,63 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
+  // Interchangeable threshold sliders: Monetary value (default: 100, step: 10) vs Multiplier (default: 2, step: 1)
+  const [filterMode, setFilterMode] = useState<AnomalyThresholdFilterMode>('monetary');
+  const [monetaryFilterValue, setMonetaryFilterValue] = useState<number>(100);
+  const [multiplierFilterValue, setMultiplierFilterValue] = useState<number>(2);
+
   // Filter out dismissed anomalies
   const activeAnomalies = useMemo(() => {
     return anomalies.filter(a => !dismissedIds.has(a.id));
   }, [anomalies, dismissedIds]);
 
-  // Secondary filtering
+  // Dynamic maximum range available in this period/time
+  const { maxMonetaryValue, maxMultiplierValue } = useMemo(() => {
+    if (activeAnomalies.length === 0) {
+      return { maxMonetaryValue: 500, maxMultiplierValue: 5 };
+    }
+    const maxAmount = Math.max(...activeAnomalies.map(a => a.amount));
+    const maxMult = Math.max(...activeAnomalies.map(a => a.deviationMultiplier || 1));
+
+    return {
+      maxMonetaryValue: Math.max(100, Math.ceil(maxAmount / 10) * 10),
+      maxMultiplierValue: Math.max(2, Math.ceil(maxMult)),
+    };
+  }, [activeAnomalies]);
+
+  // Handle switching between monetary and multiplier filter
+  const handleSwitchFilterMode = (mode: AnomalyThresholdFilterMode) => {
+    setFilterMode(mode);
+    if (mode === 'multiplier') {
+      // When changing to the multiply filter, use 2 times as the default value
+      setMultiplierFilterValue(2);
+    } else {
+      // Make the value the default filter, with 100 as the default value with 10 resolution
+      setMonetaryFilterValue(100);
+    }
+  };
+
+  // Secondary filtering - show only anomalies higher than selected filter
   const filteredAnomalies = useMemo(() => {
     return activeAnomalies.filter(a => {
       if (filterSeverity !== 'all' && a.severity !== filterSeverity) return false;
       if (filterType !== 'all' && a.type !== filterType) return false;
+
+      // Filter by active slider threshold
+      if (filterMode === 'monetary') {
+        if (a.amount < monetaryFilterValue) return false;
+      } else {
+        if (a.deviationMultiplier < multiplierFilterValue) return false;
+      }
+
       return true;
     });
-  }, [activeAnomalies, filterSeverity, filterType]);
+  }, [activeAnomalies, filterSeverity, filterType, filterMode, monetaryFilterValue, multiplierFilterValue]);
+
+  // Chronological anomaly frequency timeline points for the active period
+  const timelineData = useMemo(() => {
+    return generateAnomalyTimeline(filteredAnomalies, period);
+  }, [filteredAnomalies, period]);
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => {
@@ -170,6 +706,307 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
               Identical charges within 48-hour window
             </p>
           </div>
+        </div>
+
+        {/* Anomaly Frequency Trend Line Chart */}
+        <div className="mt-5 pt-5 border-t border-inherit">
+          <AnomalyFrequencyTimelineChart
+            timelineData={timelineData}
+            isDark={isDark}
+            currency={currency}
+            periodLabel={periodLabel}
+            totalCount={filteredAnomalies.length}
+            onViewInLedger={onViewInLedger}
+          />
+        </div>
+      </div>
+
+      {/* Interchangeable Threshold Filter Card */}
+      <div className={`p-5 rounded-2xl border transition-colors ${
+        isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
+      }`}>
+        {/* Header: Title, Mode Switcher, and Current Active Threshold Badge */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-inherit">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+              isDark ? 'bg-indigo-500/20 text-indigo-400' : 'bg-indigo-50 text-indigo-600'
+            }`}>
+              <Sliders className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100">
+                  Anomaly Threshold Filter
+                </h3>
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border font-mono ${
+                  isDark ? 'bg-indigo-950/60 border-indigo-800 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-800'
+                }`}>
+                  {filterMode === 'monetary'
+                    ? `Min Amount: ≥ ${formatCurrency(monetaryFilterValue, currency)}`
+                    : `Min Multiplier: ≥ ${multiplierFilterValue}×`}
+                </span>
+              </div>
+              <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                Showing only anomalies higher than the selected {filterMode === 'monetary' ? 'monetary value' : 'multiplier'}
+              </p>
+            </div>
+          </div>
+
+          {/* Mode Switcher Buttons */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className={`text-xs font-medium hidden md:inline ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+              Filter by:
+            </span>
+            <div className={`inline-flex rounded-xl p-1 border ${
+              isDark ? 'bg-zinc-950 border-zinc-800' : 'bg-slate-100 border-slate-200'
+            }`}>
+              <button
+                type="button"
+                onClick={() => handleSwitchFilterMode('monetary')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filterMode === 'monetary'
+                    ? isDark ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-bold'
+                    : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Monetary Value</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchFilterMode('multiplier')}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                  filterMode === 'multiplier'
+                    ? isDark ? 'bg-indigo-600 text-white shadow-xs' : 'bg-white text-indigo-700 shadow-xs border border-slate-200/80 font-bold'
+                    : isDark ? 'text-zinc-400 hover:text-zinc-200' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>Multiplier (×)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Active Slider & Small Custom Value Box */}
+        <div className="mt-4 space-y-3">
+          {filterMode === 'monetary' ? (
+            /* Monetary Value Slider & Custom Value Box */
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <span className={`font-semibold flex items-center gap-1.5 flex-wrap ${isDark ? 'text-zinc-300' : 'text-slate-700'}`}>
+                  <span>Minimum Transaction Value:</span>
+                  <span className="font-mono text-indigo-500 dark:text-indigo-400 font-bold">
+                    {formatCurrency(monetaryFilterValue, currency)}
+                  </span>
+                  <span className="text-[11px] opacity-75 font-normal">
+                    (Resolution: 10)
+                  </span>
+                </span>
+
+                {/* Small Value Box for Custom Value from User */}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                    Custom Value:
+                  </span>
+                  <div className={`flex items-center rounded-lg border px-2 py-1 shadow-xs transition-colors ${
+                    isDark ? 'bg-zinc-950 border-zinc-800 focus-within:border-indigo-500' : 'bg-white border-slate-300 focus-within:border-indigo-500'
+                  }`}>
+                    <span className={`font-mono text-xs font-bold mr-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                      {currency === 'USD' ? '$' : `${currency} `}
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      step={10}
+                      value={monetaryFilterValue}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setMonetaryFilterValue(isNaN(val) ? 0 : Math.max(0, Math.round(val)));
+                      }}
+                      className="w-20 bg-transparent text-xs font-mono font-bold text-right outline-none tabular-nums"
+                      aria-label="Custom monetary threshold value"
+                    />
+                  </div>
+                  {monetaryFilterValue !== 100 && (
+                    <button
+                      type="button"
+                      onClick={() => setMonetaryFilterValue(100)}
+                      className={`text-[11px] px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
+                        isDark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                      }`}
+                      title="Reset to default 100"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Default</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Slider Input Row */}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-mono font-semibold opacity-70 shrink-0">
+                  $0
+                </span>
+                <input
+                  type="range"
+                  min={0}
+                  max={maxMonetaryValue}
+                  step={10}
+                  value={Math.min(monetaryFilterValue, maxMonetaryValue)}
+                  onChange={e => setMonetaryFilterValue(Number(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-500 bg-slate-200 dark:bg-zinc-800"
+                  aria-label="Monetary threshold slider"
+                />
+                <span className="text-[11px] font-mono font-semibold opacity-70 shrink-0">
+                  {formatCurrency(maxMonetaryValue, currency)}
+                </span>
+              </div>
+
+              {/* Quick Presets & Match Counter */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                    Presets:
+                  </span>
+                  {[
+                    { label: 'All ($0)', val: 0 },
+                    { label: '$50', val: 50 },
+                    { label: '$100 (Default)', val: 100 },
+                    { label: '$250', val: 250 },
+                    { label: '$500', val: 500 },
+                  ]
+                    .filter(p => p.val <= maxMonetaryValue || p.val === 100)
+                    .map(p => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => setMonetaryFilterValue(p.val)}
+                        className={`px-2 py-0.5 rounded-md font-mono text-[10.5px] transition-colors border ${
+                          monetaryFilterValue === p.val
+                            ? isDark ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300 font-bold' : 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                            : isDark ? 'border-zinc-800 hover:bg-zinc-800/80 text-zinc-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                </div>
+                <div className={`font-mono text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                  {filteredAnomalies.length} of {activeAnomalies.length} anomalies match (≥ {formatCurrency(monetaryFilterValue, currency)})
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Multiplier Slider & Custom Value Box */
+            <div className="space-y-2.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                <span className={`font-semibold flex items-center gap-1.5 flex-wrap ${isDark ? 'text-zinc-300' : 'text-slate-700'}`}>
+                  <span>Minimum Outlier Multiplier:</span>
+                  <span className="font-mono text-indigo-500 dark:text-indigo-400 font-bold">
+                    {multiplierFilterValue}×
+                  </span>
+                  <span className="text-[11px] opacity-75 font-normal">
+                    (Resolution: 1, relative to category median)
+                  </span>
+                </span>
+
+                {/* Small Value Box for Custom Multiplier from User */}
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className={`text-[11px] font-medium ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                    Custom Multiplier:
+                  </span>
+                  <div className={`flex items-center rounded-lg border px-2 py-1 shadow-xs transition-colors ${
+                    isDark ? 'bg-zinc-950 border-zinc-800 focus-within:border-indigo-500' : 'bg-white border-slate-300 focus-within:border-indigo-500'
+                  }`}>
+                    <input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={multiplierFilterValue}
+                      onChange={e => {
+                        const val = parseFloat(e.target.value);
+                        setMultiplierFilterValue(isNaN(val) ? 1 : Math.max(1, Math.round(val)));
+                      }}
+                      className="w-16 bg-transparent text-xs font-mono font-bold text-right outline-none tabular-nums"
+                      aria-label="Custom multiplier threshold value"
+                    />
+                    <span className={`font-mono text-xs font-bold ml-1 ${isDark ? 'text-zinc-400' : 'text-slate-500'}`}>
+                      ×
+                    </span>
+                  </div>
+                  {multiplierFilterValue !== 2 && (
+                    <button
+                      type="button"
+                      onClick={() => setMultiplierFilterValue(2)}
+                      className={`text-[11px] px-2 py-1 rounded border transition-colors flex items-center gap-1 ${
+                        isDark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                      }`}
+                      title="Reset to default 2x"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Default</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Slider Input Row */}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-mono font-semibold opacity-70 shrink-0">
+                  1×
+                </span>
+                <input
+                  type="range"
+                  min={1}
+                  max={maxMultiplierValue}
+                  step={1}
+                  value={Math.min(multiplierFilterValue, maxMultiplierValue)}
+                  onChange={e => setMultiplierFilterValue(Number(e.target.value))}
+                  className="w-full h-2 rounded-lg appearance-none cursor-pointer accent-indigo-600 dark:accent-indigo-500 bg-slate-200 dark:bg-zinc-800"
+                  aria-label="Multiplier threshold slider"
+                />
+                <span className="text-[11px] font-mono font-semibold opacity-70 shrink-0">
+                  {maxMultiplierValue}×
+                </span>
+              </div>
+
+              {/* Quick Presets & Match Counter */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`text-[10px] uppercase font-bold tracking-wider ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                    Presets:
+                  </span>
+                  {[
+                    { label: '1× (All)', val: 1 },
+                    { label: '2× (Default)', val: 2 },
+                    { label: '3×', val: 3 },
+                    { label: '4×', val: 4 },
+                    { label: '5×', val: 5 },
+                  ]
+                    .filter(p => p.val <= maxMultiplierValue || p.val === 2)
+                    .map(p => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => setMultiplierFilterValue(p.val)}
+                        className={`px-2 py-0.5 rounded-md font-mono text-[10.5px] transition-colors border ${
+                          multiplierFilterValue === p.val
+                            ? isDark ? 'bg-indigo-950/80 border-indigo-700 text-indigo-300 font-bold' : 'bg-indigo-50 border-indigo-300 text-indigo-800 font-bold'
+                            : isDark ? 'border-zinc-800 hover:bg-zinc-800/80 text-zinc-400' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                </div>
+                <div className={`font-mono text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
+                  {filteredAnomalies.length} of {activeAnomalies.length} anomalies match (≥ {multiplierFilterValue}×)
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -409,15 +1246,50 @@ export const FinancialAnomaliesView: React.FC<FinancialAnomaliesViewProps> = ({
         <div className={`p-12 rounded-2xl border text-center space-y-3 ${
           isDark ? 'bg-zinc-900/60 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
         }`}>
-          <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-500 mx-auto flex items-center justify-center">
-            <CheckCircle className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-full bg-indigo-500/10 text-indigo-500 mx-auto flex items-center justify-center">
+            {activeAnomalies.length > 0 ? <Filter className="w-6 h-6" /> : <CheckCircle className="w-6 h-6 text-emerald-500" />}
           </div>
           <h3 className="text-base font-bold text-slate-900 dark:text-zinc-100">
-            No Financial Anomalies Detected
+            {activeAnomalies.length > 0
+              ? 'No Anomalies Exceed Selected Threshold'
+              : 'No Financial Anomalies Detected'}
           </h3>
           <p className={`text-xs max-w-md mx-auto ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-            All recorded transaction amounts in {periodLabel || 'this period'} conform within expected statistical parameters for their respective categories.
+            {activeAnomalies.length > 0
+              ? `There are ${activeAnomalies.length} flagged anomalies in this period, but none exceed the current ${
+                  filterMode === 'monetary'
+                    ? `monetary threshold of ${formatCurrency(monetaryFilterValue, currency)}`
+                    : `multiplier threshold of ${multiplierFilterValue}×`
+                }.`
+              : `All recorded transaction amounts in ${periodLabel || 'this period'} conform within expected statistical parameters for their respective categories.`}
           </p>
+          {activeAnomalies.length > 0 && (
+            <div className="pt-2 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (filterMode === 'monetary') setMonetaryFilterValue(0);
+                  else setMultiplierFilterValue(1);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-colors shadow-xs"
+              >
+                <span>Lower Threshold to Show All</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (filterMode === 'monetary') setMonetaryFilterValue(100);
+                  else setMultiplierFilterValue(2);
+                }}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                  isDark ? 'border-zinc-800 hover:bg-zinc-800 text-zinc-300' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+                }`}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset to Default ({filterMode === 'monetary' ? '$100' : '2×'})</span>
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -1,4 +1,12 @@
-import { Transaction, CategoryBudget, AccountSummary, MonthlyCashflow, BalancePoint } from '../types/finance';
+import {
+  Transaction,
+  CategoryBudget,
+  AccountSummary,
+  AccountSummaryWithTrend,
+  MonthlyCashflow,
+  BalancePoint,
+  PeriodInfo,
+} from '../types/finance';
 
 /**
  * Checks whether a category represents a Balance Adjustment.
@@ -161,6 +169,160 @@ export function calculateAccountSummaries(transactions: Transaction[]): AccountS
     totalIncome: val.totalIncome,
     totalExpense: val.totalExpense,
   })).sort((a, b) => b.latestBalance - a.latestBalance);
+}
+
+/**
+ * Computes per-account balances and metrics, enriched with period trend indicators
+ * comparing period ending balance to the previous period's ending balance (or baseline starting balance).
+ */
+export function calculateAccountSummariesWithTrends(
+  allTransactions: Transaction[],
+  initialBalances: Record<string, number> = {},
+  activePeriod?: PeriodInfo,
+  previousPeriod?: PeriodInfo
+): AccountSummaryWithTrend[] {
+  // Group all transactions by account name
+  const accountTxMap = new Map<string, Transaction[]>();
+
+  allTransactions.forEach(t => {
+    const acc = t.account || 'Default Account';
+    if (!accountTxMap.has(acc)) {
+      accountTxMap.set(acc, []);
+    }
+    accountTxMap.get(acc)!.push(t);
+  });
+
+  // Also include any accounts that only exist in initialBalances
+  Object.keys(initialBalances).forEach(acc => {
+    if (!accountTxMap.has(acc)) {
+      accountTxMap.set(acc, []);
+    }
+  });
+
+  const results: AccountSummaryWithTrend[] = [];
+
+  accountTxMap.forEach((txList, accountName) => {
+    // Sort transactions chronologically ascending
+    const sorted = [...txList].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    let totalIncome = 0;
+    let totalExpense = 0;
+    let currency = 'USD';
+
+    sorted.forEach(t => {
+      currency = t.currency || currency;
+      if (t.type === 'Income' && !isBalanceAdjustment(t.category)) {
+        totalIncome += t.amount;
+      } else if (t.type === 'Expense' && !isBalanceAdjustment(t.category)) {
+        totalExpense += t.amount;
+      }
+    });
+
+    const initBal = initialBalances[accountName] ?? 0;
+    const latestBalance = sorted.length > 0 ? sorted[sorted.length - 1].accountBalance : initBal;
+
+    // 1. Balance at the end of the active period
+    let currentBalance: number;
+    let periodTxCount = 0;
+
+    if (activePeriod && activePeriod.unit !== 'all') {
+      const activeEndMs = activePeriod.end.getTime();
+      const activeStartMs = activePeriod.start.getTime();
+      const txUpToActiveEnd = sorted.filter(t => t.date.getTime() <= activeEndMs);
+
+      currentBalance = txUpToActiveEnd.length > 0 ? txUpToActiveEnd[txUpToActiveEnd.length - 1].accountBalance : initBal;
+      periodTxCount = sorted.filter(t => t.date.getTime() >= activeStartMs && t.date.getTime() <= activeEndMs).length;
+    } else {
+      currentBalance = latestBalance;
+      periodTxCount = sorted.length;
+    }
+
+    // 2. Balance at the end of the previous period (or before active period start)
+    let previousBalance: number;
+    let comparisonLabel: string;
+
+    if (previousPeriod) {
+      const prevEndMs = previousPeriod.end.getTime();
+      const txUpToPrevEnd = sorted.filter(t => t.date.getTime() <= prevEndMs);
+      previousBalance = txUpToPrevEnd.length > 0 ? txUpToPrevEnd[txUpToPrevEnd.length - 1].accountBalance : initBal;
+      comparisonLabel = previousPeriod.label;
+    } else if (activePeriod && activePeriod.unit !== 'all') {
+      const activeStartMs = activePeriod.start.getTime();
+      const txBeforeActiveStart = sorted.filter(t => t.date.getTime() < activeStartMs);
+      previousBalance = txBeforeActiveStart.length > 0 ? txBeforeActiveStart[txBeforeActiveStart.length - 1].accountBalance : initBal;
+      comparisonLabel = txBeforeActiveStart.length > 0 ? 'prior period' : 'initial starting balance';
+    } else {
+      previousBalance = initBal;
+      comparisonLabel = 'initial starting balance';
+    }
+
+    // 3. Difference and percentage change
+    const changeAmount = Math.round((currentBalance - previousBalance) * 100) / 100;
+    let percentChange = 0;
+    let percentStr = '0.0%';
+    let direction: 'up' | 'down' | 'neutral' = 'neutral';
+
+    if (Math.abs(changeAmount) < 0.005) {
+      direction = 'neutral';
+      percentChange = 0;
+      percentStr = '0.0%';
+    } else if (previousBalance === 0) {
+      if (changeAmount > 0) {
+        direction = 'up';
+        percentChange = 100;
+        percentStr = '+100%';
+      } else {
+        direction = 'down';
+        percentChange = -100;
+        percentStr = '-100%';
+      }
+    } else {
+      const rawPct = (changeAmount / Math.abs(previousBalance)) * 100;
+      percentChange = Math.round(rawPct * 10) / 10;
+      if (changeAmount > 0) {
+        direction = 'up';
+        percentStr = `+${Math.abs(percentChange).toFixed(1)}%`;
+      } else {
+        direction = 'down';
+        percentStr = `-${Math.abs(percentChange).toFixed(1)}%`;
+      }
+    }
+
+    // 4. Clear explanatory tooltip
+    let tooltip: string;
+    if (direction === 'up') {
+      tooltip = `Balance increased by ${formatCurrency(changeAmount, currency)} (${percentStr}) from ${formatCurrency(previousBalance, currency)} to ${formatCurrency(currentBalance, currency)} vs ${comparisonLabel}`;
+    } else if (direction === 'down') {
+      tooltip = `Balance decreased by ${formatCurrency(Math.abs(changeAmount), currency)} (${percentStr}) from ${formatCurrency(previousBalance, currency)} to ${formatCurrency(currentBalance, currency)} vs ${comparisonLabel}`;
+    } else {
+      tooltip = `Balance remained unchanged at ${formatCurrency(currentBalance, currency)} (0.0% change vs ${comparisonLabel})`;
+    }
+
+    results.push({
+      name: accountName,
+      latestBalance,
+      currentBalance,
+      currency,
+      transactionCount: sorted.length,
+      periodTxCount,
+      totalIncome,
+      totalExpense,
+      trend: {
+        currentBalance,
+        previousBalance,
+        changeAmount,
+        percentChange,
+        percentStr,
+        direction,
+        tooltip,
+        comparisonLabel,
+        periodTxCount,
+        totalTxCount: sorted.length,
+      },
+    });
+  });
+
+  return results.sort((a, b) => b.currentBalance - a.currentBalance);
 }
 
 /**

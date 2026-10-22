@@ -46,6 +46,25 @@ export interface AccountSummary {
   totalExpense: number;
 }
 
+export interface AccountTrendInfo {
+  currentBalance: number;
+  previousBalance: number;
+  changeAmount: number;
+  percentChange: number;
+  percentStr: string;
+  direction: 'up' | 'down' | 'neutral';
+  tooltip: string;
+  comparisonLabel: string;
+  periodTxCount: number;
+  totalTxCount: number;
+}
+
+export interface AccountSummaryWithTrend extends AccountSummary {
+  currentBalance: number;
+  periodTxCount: number;
+  trend: AccountTrendInfo;
+}
+
 export interface MonthlyCashflow {
   monthKey: string; // '2026-10'
   monthLabel: string; // 'Oct 2026'

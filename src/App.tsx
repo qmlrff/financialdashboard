@@ -13,12 +13,13 @@ import { ChartStudio } from './components/ChartStudio';
 import { AnalyticalInsightsOverview } from './components/AnalyticalInsightsOverview';
 import { TransactionLedger } from './components/TransactionLedger';
 import { FinancialAnomaliesView } from './components/FinancialAnomaliesView';
+import { AccountBalanceSparkline } from './components/AccountBalanceSparkline';
 import { Transaction, TimeframeUnit } from './types/finance';
-import { calculateCategoryBudgets, calculateAccountSummaries, formatCurrency } from './utils/analytics';
+import { calculateCategoryBudgets, calculateAccountSummaries, calculateAccountSummariesWithTrends, formatCurrency } from './utils/analytics';
 import { generateSampleDataset, exportTransactionsToCsv, calculateRunningBalancesForAccounts } from './utils/fileParser';
 import { getPeriodsForTimeframe, filterTransactionsByPeriod, createCustomPeriod } from './utils/timeframe';
 import { detectFinancialAnomalies, SensitivityLevel } from './utils/anomalyDetection';
-import { AlertTriangle, ArrowRight, CheckCircle, ShieldAlert, Sliders, X, RotateCcw, Edit3, Search } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ArrowUpRight, ArrowDownRight, Minus, CheckCircle, ShieldAlert, Sliders, X, RotateCcw, Edit3, Search, Activity } from 'lucide-react';
 
 export default function App() {
   const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
@@ -32,6 +33,7 @@ export default function App() {
   const [anomalySensitivity, setAnomalySensitivity] = useState<SensitivityLevel>('medium');
   const [ledgerSearchQuery, setLedgerSearchQuery] = useState<string>('');
   const [globalSearchQuery, setGlobalSearchQuery] = useState<string>('');
+  const [selectedSparklineAccount, setSelectedSparklineAccount] = useState<string | null>(null);
 
   // Dynamically calculate ending balance for each transaction of an individual account
   const transactions = useMemo(() => {
@@ -259,9 +261,21 @@ export default function App() {
     );
   }, [searchFilteredPeriodTransactions, customLimits, activePeriod, searchFilteredTransactions]);
 
+  const previousPeriod = useMemo(() => {
+    if (safePeriodIndex > 0 && periods.length > safePeriodIndex) {
+      return periods[safePeriodIndex - 1];
+    }
+    return undefined;
+  }, [safePeriodIndex, periods]);
+
   const accountSummaries = useMemo(() => {
-    return calculateAccountSummaries(transactions);
-  }, [transactions]);
+    return calculateAccountSummariesWithTrends(
+      transactions,
+      initialBalances,
+      activePeriod,
+      previousPeriod
+    );
+  }, [transactions, initialBalances, activePeriod, previousPeriod]);
 
   // Detected financial anomalies (respecting global search filter)
   const anomalies = useMemo(() => {
@@ -434,48 +448,173 @@ export default function App() {
                 <div className={`p-5 rounded-2xl border ${
                   isDark ? 'bg-zinc-900/80 border-zinc-800' : 'bg-white border-slate-200 shadow-xs'
                 }`}>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
-                      <h3 className="text-sm font-bold">Accounts & Balances</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold">Accounts & Balances</h3>
+                        {previousPeriod && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                            isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            vs {previousPeriod.label}
+                          </span>
+                        )}
+                        {selectedSparklineAccount && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${
+                            isDark ? 'bg-indigo-950/60 border-indigo-800 text-indigo-300' : 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                          }`}>
+                            Sparkline: {selectedSparklineAccount}
+                          </span>
+                        )}
+                      </div>
                       <p className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                        Running balances across all active financial accounts
+                        {activePeriod?.unit === 'all'
+                          ? 'Current balances and change vs initial baseline • Click any account to visualize trend sparkline'
+                          : `Ending balances with trend vs ${previousPeriod ? previousPeriod.label : 'initial baseline'} • Click any account to visualize trend sparkline`}
                       </p>
                     </div>
-                    <button
-                      onClick={handleOpenBalanceModal}
-                      className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-medium"
-                      title="Configure initial starting balances for accounts"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Starting Balances</span>
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {accountSummaries.map(acc => (
-                      <div
-                        key={acc.name}
-                        className={`p-3.5 rounded-xl border flex flex-col justify-between gap-2.5 ${
-                          isDark ? 'bg-zinc-950/50 border-zinc-800' : 'bg-slate-50 border-slate-200'
-                        }`}
+
+                    <div className="flex items-center gap-2 self-start sm:self-auto">
+                      {selectedSparklineAccount && (
+                        <button
+                          onClick={() => setSelectedSparklineAccount(null)}
+                          className={`text-xs px-2.5 py-1 rounded-lg border font-medium transition-colors ${
+                            isDark ? 'border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800' : 'border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                          }`}
+                        >
+                          Close Sparkline
+                        </button>
+                      )}
+                      <button
+                        onClick={handleOpenBalanceModal}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline flex items-center gap-1 font-medium"
+                        title="Configure initial starting balances for accounts"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="text-xs font-semibold truncate" title={acc.name}>{acc.name}</div>
-                          <span className={`text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded ${
-                            isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-slate-700'
-                          }`}>
-                            {acc.currency}
-                          </span>
+                        <Edit3 className="w-3 h-3" />
+                        <span>Starting Balances</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {accountSummaries.map(acc => {
+                      const trend = acc.trend;
+                      const isUp = trend?.direction === 'up';
+                      const isDown = trend?.direction === 'down';
+                      const isSelected = selectedSparklineAccount === acc.name;
+
+                      return (
+                        <div
+                          key={acc.name}
+                          onClick={() => setSelectedSparklineAccount(prev => prev === acc.name ? null : acc.name)}
+                          className={`p-3.5 rounded-xl border flex flex-col justify-between gap-3 cursor-pointer transition-all duration-200 ${
+                            isSelected
+                              ? isDark
+                                ? 'bg-zinc-900 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md'
+                                : 'bg-white border-indigo-500 ring-2 ring-indigo-500/20 shadow-md'
+                              : isDark
+                              ? 'bg-zinc-950/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/60'
+                              : 'bg-slate-50 border-slate-200 hover:border-slate-300 hover:bg-white'
+                          }`}
+                          title={isSelected ? 'Click to collapse sparkline' : 'Click to visualize balance trend sparkline'}
+                        >
+                          {/* Top: Account Name, Currency badge, & Sparkline toggle hint */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-semibold truncate flex items-center gap-1.5" title={acc.name}>
+                                <span className="truncate">{acc.name}</span>
+                                {isSelected && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[10px] uppercase font-semibold font-mono px-1.5 py-0.5 rounded ${
+                                isDark ? 'bg-zinc-800 text-zinc-300' : 'bg-slate-200 text-slate-700'
+                              }`}>
+                                {acc.currency}
+                              </span>
+                              <div
+                                className={`w-4 h-4 rounded flex items-center justify-center text-xs transition-colors ${
+                                  isSelected
+                                    ? 'text-indigo-400 bg-indigo-500/10'
+                                    : 'text-zinc-400 group-hover:text-zinc-200'
+                                }`}
+                                title={isSelected ? 'Sparkline open' : 'Click to view sparkline'}
+                              >
+                                <Activity className="w-3 h-3" />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Balance & Visual Trend Indicator */}
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="text-base sm:text-lg font-mono font-bold tabular-nums tracking-tight">
+                              {formatCurrency(acc.currentBalance ?? acc.latestBalance, acc.currency)}
+                            </span>
+
+                            {/* Visual trend indicator: Up/Down arrow with percentage change */}
+                            {trend && (
+                              <div
+                                className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[11px] font-mono font-bold tabular-nums shrink-0 cursor-help ${
+                                  isUp
+                                    ? isDark
+                                      ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/60'
+                                      : 'bg-emerald-100 text-emerald-800 border border-emerald-300/80'
+                                    : isDown
+                                    ? isDark
+                                      ? 'bg-rose-950/80 text-rose-400 border border-rose-800/60'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-300/80'
+                                    : isDark
+                                    ? 'bg-zinc-800/80 text-zinc-400 border border-zinc-700/60'
+                                    : 'bg-slate-200/80 text-slate-700 border border-slate-300'
+                                }`}
+                                title={trend.tooltip}
+                              >
+                                {isUp && <ArrowUpRight className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />}
+                                {isDown && <ArrowDownRight className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />}
+                                {!isUp && !isDown && <Minus className="w-3.5 h-3.5 shrink-0 stroke-[2.5]" />}
+                                <span>{trend.percentStr}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Recharts Sparkline Component when Selected */}
+                          {isSelected && (
+                            <AccountBalanceSparkline
+                              accountName={acc.name}
+                              currency={acc.currency}
+                              allTransactions={transactions}
+                              initialBalance={initialBalances[acc.name] ?? 0}
+                              period={activePeriod}
+                              isDark={isDark}
+                              onViewInLedger={handleViewInLedger}
+                              onClose={() => setSelectedSparklineAccount(null)}
+                            />
+                          )}
+
+                          {/* Period context footer: Change amount vs prev & transaction count */}
+                          {!isSelected && (
+                            <div className="pt-2 border-t border-inherit flex items-center justify-between gap-2 text-[10.5px] font-mono text-zinc-500 dark:text-zinc-400">
+                              <span className="truncate" title={trend?.tooltip}>
+                                {trend ? (
+                                  <>
+                                    {isUp ? '+' : ''}
+                                    {formatCurrency(trend.changeAmount, acc.currency)}
+                                    <span className="opacity-75 ml-1">vs prev</span>
+                                  </>
+                                ) : (
+                                  `${acc.transactionCount} txns`
+                                )}
+                              </span>
+                              <span className="shrink-0 text-[10px] opacity-80 flex items-center gap-1">
+                                <span>{acc.periodTxCount !== undefined ? `${acc.periodTxCount} in period` : `${acc.transactionCount} txns`}</span>
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-baseline justify-between gap-2 pt-1 border-t border-inherit">
-                          <span className={`text-[11px] ${isDark ? 'text-zinc-400' : 'text-slate-600'}`}>
-                            {acc.transactionCount} txns
-                          </span>
-                          <span className="text-sm font-mono font-bold tabular-nums">
-                            {formatCurrency(acc.latestBalance, acc.currency)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -527,6 +666,7 @@ export default function App() {
                 onSensitivityChange={setAnomalySensitivity}
                 currency={primaryCurrency}
                 isDark={isDark}
+                period={activePeriod}
                 periodLabel={activePeriod?.label}
                 onViewInLedger={handleViewInLedger}
               />
